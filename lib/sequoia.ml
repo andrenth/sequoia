@@ -82,7 +82,7 @@ end = struct
     | `String s -> sprintf "'%s'" (escape s)
     | `Column c -> sprintf "%s" (column_to_string c)
     | `Alias (e, a) -> sprintf "%s" (to_string e ^ " AS " ^ a)
-    | `Like (e, p) -> sprintf "%s LIKE '%s'" (to_string e) (to_string p)
+    | `Like (e, p) -> sprintf "%s LIKE %s" (to_string e) (to_string p)
     | `Regexp (e, r) -> sprintf "%s REGEXP '%s'" (to_string e) (to_string r)
     | `Not (`Like (e, p)) ->
         sprintf "%s NOT LIKE %s" (to_string e) (to_string p)
