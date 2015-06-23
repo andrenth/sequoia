@@ -143,12 +143,19 @@ let resolve_alias defined_aliases alias =
 let used_alias validations alias =
   Hashtbl.replace validations.used_aliases alias true
 
+let table_selected tables database table =
+  try
+    let database = Hashtbl.find tables database in
+    Hashtbl.mem database table
+  with Not_found ->
+    false
+
 let validate_columns validations =
   Hashtbl.iter
     (fun database tables ->
       Hashtbl.iter
         (fun table cols ->
-          if table_exists database table then
+          if table_selected validations.tables database table then
             Hashtbl.iter
               (fun col _ ->
                 if not (column_exists database table col) then
