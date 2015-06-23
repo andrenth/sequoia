@@ -1,0 +1,21 @@
+# OASIS_START
+# DO NOT EDIT (digest: 33a9bfad9cca61f5ac2f25ec14e7b84a)
+version = "0.0.0"
+description = "Type-safe SQL library and syntax extension"
+archive(byte) = "sequoia.cma"
+archive(byte, plugin) = "sequoia.cma"
+archive(native) = "sequoia.cmxa"
+archive(native, plugin) = "sequoia.cmxs"
+exists_if = "sequoia.cma"
+package "ppx" (
+ version = "0.0.0"
+ description = "Type-safe SQL library and syntax extension"
+ requires = "sequoia"
+ archive(byte) = "sequoia_ppx.cma"
+ archive(byte, plugin) = "sequoia_ppx.cma"
+ archive(native) = "sequoia_ppx.cmxa"
+ archive(native, plugin) = "sequoia_ppx.cmxs"
+ ppx = "ppx_sequoia"
+ exists_if = "sequoia_ppx.cma"
+)
+# OASIS_STOP

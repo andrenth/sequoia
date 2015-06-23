@@ -1,0 +1,39 @@
+<lib_test/ppx/*>: ppx_sequoia
+
+# OASIS_START
+# DO NOT EDIT (digest: 76a4ac9b85d9e62de411e30196face98)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
+# useless stuff for the build process
+true: annot, bin_annot
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library sequoia
+"lib/sequoia.cmxs": use_sequoia
+# Library sequoia_ppx
+"lib/ppx/sequoia_ppx.cmxs": use_sequoia_ppx
+# Executable ppx_sequoia
+<lib/ppx/ppx_sequoia.{native,byte}>: package(compiler-libs.common)
+<lib/ppx/ppx_sequoia.{native,byte}>: package(ppx_tools)
+<lib/ppx/ppx_sequoia.{native,byte}>: package(str)
+<lib/ppx/*.ml{,i,y}>: package(compiler-libs.common)
+<lib/ppx/*.ml{,i,y}>: package(ppx_tools)
+<lib/ppx/*.ml{,i,y}>: package(str)
+# Executable t
+<lib_test/ppx/t.{native,byte}>: package(compiler-libs.common)
+<lib_test/ppx/t.{native,byte}>: package(ppx_tools)
+<lib_test/ppx/t.{native,byte}>: package(str)
+<lib_test/ppx/t.{native,byte}>: use_sequoia
+<lib_test/ppx/*.ml{,i,y}>: package(compiler-libs.common)
+<lib_test/ppx/*.ml{,i,y}>: package(ppx_tools)
+<lib_test/ppx/*.ml{,i,y}>: package(str)
+<lib_test/ppx/*.ml{,i,y}>: use_sequoia
+# OASIS_STOP
