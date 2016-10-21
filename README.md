@@ -32,16 +32,16 @@ module Book = struct
   let author = Field.string "author"
 end
 
-module BookUser = struct
-  include (val Mysql.table "books_user")
-  let book = Field.foreign_key "book_id" ~references:Book.id
-  let user = Field.foreign_key "user_id" ~references:User.id
-end
-
 module Publisher = struct
   include (val Mysql.table "books_user")
   let id = Field.int "id"
   let name = Field.string "name"
+end
+
+module BookUser = struct
+  include (val Mysql.table "publishers")
+  let book = Field.foreign_key "book_id" ~references:Book.id
+  let user = Field.foreign_key "user_id" ~references:User.id
 end
 ```
 
@@ -52,7 +52,7 @@ let query, params = Mysql.(Select.(Expr.(
   from BookUser.table
     |> left_join belonging_to BookUser.user There
     |> left_join belonging_to BookUser.book (Skip There)
-    |> left_join having_one Book.publisher (Skip There)
+    |> left_join belonging_to Book.publisher (Skip There)
     |> select
          [ field User.name (Skip (Skip There))
          ; field Book.title (Skip There)
@@ -165,6 +165,12 @@ module%sql User = struct
   let name = Field.string "name"
 end
 
+module%sql Publisher = struct
+  include (val Mysql.table "publishers")
+  let id = Field.int "id"
+  let name = Field.string "name"
+end
+
 module%sql Book = struct
   include (val Mysql.table "books")
   let id = Field.int "id"
@@ -180,27 +186,23 @@ module%sql BookUser = struct
   let user = Field.foreign_key "user_id" ~references:User.id
 end
 
-module%sql Publisher = struct
-  include (val Mysql.table "books_user")
-  let id = Field.int "id"
-  let name = Field.string "name"
-end
-
-let%sql query, params = Mysql.(Select.(Expr.(
-  from BookUser.table
-    |> left_join belonging_to BookUser.user
-    |> left_join belonging_to BookUser.book
-    |> left_join having_one Book.publisher
-    |> select
-         [ field User.name
-         ; field Book.title
-         ; field Publisher.name
-         ]
-    |> where (field User.name) = field Book.author)
-    |> order_by [field User.name; field Book.title]
-    |> limit 10
-    |> seal
-)))
+let () =
+  let%sql query, params = Mysql.(Select.(Expr.(
+    from BookUser.table
+      |> left_join belonging_to BookUser.user
+      |> left_join belonging_to BookUser.book
+      |> left_join belonging_to Book.publisher
+      |> select
+           [ field User.name
+           ; field Book.title
+           ; field Publisher.name
+           ]
+      |> where (field User.name) = field Book.author)
+      |> order_by [field User.name; field Book.title]
+      |> limit 10
+      |> seal
+  ))) in
+  print_endline query
 
 ```
 
