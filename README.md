@@ -7,7 +7,7 @@ joins using fields previously declared to reference each other. Finally, it
 prevents you from using expressions with incompatible types
 
 The queries are composable and the library is extensible, currently providing
-drivers for MySQL/MariaDB and SQlite.
+drivers for MySQL/MariaDB and SQLite.
 
 ## Example usage
 
