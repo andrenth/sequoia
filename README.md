@@ -217,3 +217,7 @@ In the future it might be extended to be more comprehensive.
   defined in separate files).
 * No `INSERT`, `UPDATE` or `DELETE` support (yet).
 * No documentation other than this file (yet).
+
+## Acknowledgements
+
+Thanks to Gabriel Scherer for the [type-system wizardry](https://sympa.inria.fr/sympa/arc/caml-list/2016-09/msg00111.html) that makes this library possible.
