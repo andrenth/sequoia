@@ -216,5 +216,7 @@ In the future it might be extended to be more comprehensive.
 ## Issues and limitations
 
 * No arbitrary expressions on joins;
+* All table definitions must be in the same file (though queries can be
+  defined in separate files).
 * No `INSERT`, `UPDATE` or `DELETE` support (yet).
 * No documentation other than this file (yet).
