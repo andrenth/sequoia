@@ -1,0 +1,18 @@
+opam-version: "1.2"
+name: "sequoia"
+version: "0.0.0"
+maintainer: "Andre Nathan <andre@digirati.com.br>"
+authors: "Andre Nathan <andre@digirati.com.br>"
+homepage: "https://github.com/andrenth/sequoia"
+bug-reports: "https://github.com/andrenth/sequoia"
+license: "MIT"
+dev-repo: "https://github.com/andrenth/sequoia"
+build: [
+  ["./configure" "--prefix=%{prefix}%"]
+  [make]
+]
+install: [make "install"]
+remove: ["ocamlfind" "remove" "sequoia"]
+depends: [
+  "ocamlfind" {build}
+]

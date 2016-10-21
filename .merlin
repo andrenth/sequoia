@@ -1,0 +1,11 @@
+S lib
+S lib/mysql
+S lib_test
+S lib_test/ppx
+B _build/lib
+B _build/lib/mysql
+B _build/lib_test
+B _build/lib_test/ppx
+
+PKG compiler-libs.common
+PKG ppx_tools

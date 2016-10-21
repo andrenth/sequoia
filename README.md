@@ -1,86 +1,218 @@
 # Sequoia
 
-Sequoia is a safe query builder for MySQL. You can map a database using an
-OCaml module like so:
+Sequoia is a type-safe query builder for OCaml. It uses the OCaml type system
+to ensure only fields from tables used as data sources for the query (i.e.
+tables referred to in `FROM` or `JOIN` statements) can be used. It only allows
+joins using fields previously declared to reference each other. Finally, it
+prevents you from using expressions with incompatible types
+
+The queries are composable and the library is extensible, currently providing
+drivers for MySQL/MariaDB and SQlite.
+
+## Example usage
+
+Tables are defined via OCaml modules, each of its fields corresponding to
+a value:
 
 ```ocaml
-module MyDB = struct
-  type my_table = {
-     id   : int    [@sql];
-     name : string [@sql];
-  } [@@sql]
-end [@@sql]
+module Mysql = Sequoia_mysql
+
+module User = struct
+  include (val Mysql.table "users")
+  let id = Field.int "id"
+  let name = Field.string "name"
+end
+
+module Book = struct
+  include (val Mysql.table "books")
+  let id = Field.int "id"
+  let owner = Field.foreign_key "owner_id" ~references:User.id
+  let publisher = Field.foreign_key "publisher_id" ~references:Publisher.id
+  let title = Field.string "title"
+  let author = Field.string "author"
+end
+
+module BookUser = struct
+  include (val Mysql.table "books_user")
+  let book = Field.foreign_key "book_id" ~references:Book.id
+  let user = Field.foreign_key "user_id" ~references:User.id
+end
+
+module Publisher = struct
+  include (val Mysql.table "books_user")
+  let id = Field.int "id"
+  let name = Field.string "name"
+end
 ```
 
-The `@sql`/`@@sql` attributes can take an extra string that will map to the
-real MySQL column/table/database names in case they differ from their
-OCaml names.
-
-With that definition you can then build a query:
+A `SELECT` query can be created like this:
 
 ```ocaml
-let%sql query =
-  select
-    t.name
-  from
-    MyDB.my_table as_ t
+let query, params = Mysql.(Select.(Expr.(
+  from BookUser.table
+    |> left_join belonging_to BookUser.user There
+    |> left_join belonging_to BookUser.book (Skip There)
+    |> left_join having_one Book.publisher (Skip There)
+    |> select
+         [ field User.name (Skip (Skip There))
+         ; field Book.title (Skip There)
+         ; field Publisher.name There
+         ]
+    |> where
+         (field User.name (Skip (Skip There)) = field Book.author (Skip There))
+    |> order_by
+         [ field User.name (Skip (Skip There))
+         ; field Book.title There
+         ]
+    |> limit 10
+    |> seal
+)))
 ```
 
-Which will build the query below via `Sequoia.Select.to_string query`:
+The `seal` function marks the end of the query and returns two values: a
+string representation of the query, with markers for parameters according
+to the prepared statement syntax of the driver, and the list of query
+parameters itself.
+
+The expression above will then generate the following query:
 
 ```sql
-SELECT `t`.`name` FROM `MyDB`.`my_table` AS `t`
+SELECT
+  users.name, boooks.title publishers.name
+FROM
+  books_users
+LEFT JOIN
+  users on users.id = books_users.user_id
+LEFT JOIN
+  books on books.id = books_users.book_id
+LEFT JOIN
+  publishers on publishers.id = books.publisher_id
+WHERE
+  users.name = books.author
+ORDER BY
+  (users.name, books.title)
+LIMIT ?
 ```
+and the parameter list will be `[Param.Int 10]`.
 
-Variable substitution is supported using the ref syntax:
+## The Skip/There stuff
+
+You have probably noticed the odd `There`, `Skip There` and `Skip (Skip There)`
+values in the query expression above. These are used to ensure that only fields
+from previously referenced tables can be used, and are called "referrer
+arguments".
+
+You can think of then as walking on a linked list of tables until you find the
+table you're referring to. So, for example, the expression `Skip (Skip There)`
+would be used to refer to the third table in that list.
+
+To know how to find the table in this scheme, it is necessary to understand
+how the list is built. The process works as follows.
+
+1. A call to the `from` function creates a singleton list. In the example
+above, this would be a list containing the `books_users` table: `[books_users]`.
+
+2. A join statement in SQL (in the example above, the `left_join` function)
+adds a new data source to the query. Following the example, there a join is
+made with the `users` table via the `books_users.user_id` reference. To be
+able to refer to the `books_users` table, we must walk the list above until
+we find it, and since it's the only element of the list, it's already `There`.
+The list now looks like `[users; books_users]`.
+
+3. A second join is made, this time with the `books` table, in an way analogous
+to the description above. Only now the `books_users` table is no longer the
+first element of the list, so to find it we must skip the `users` table and
+therefore we have `Skip There`. A new insertion is always made immediately
+before the referred table in the list, which then looks like this:
+`[users; books; books_users]`.
+
+4. Yet another join, this time with the `publishers` table via the foreign
+key `books.publisher_id`. Since `books` is the second table in the list, we
+once again have `Skip There`. The final list looks like
+`[users; publishers; books; books_users]`.
+
+The `select` function marks the end of the list construction, so from this
+point onwards fields can be referenced according to it:
+
+* To refer to a field in the `users` table, use `There`
+* To refer to a field in the `publishers` table, use `Skip There`
+* To refer to a field in the `books` table, use `Skip (Skip There)`
+* To refer to a field in the `books_users` table, use `Skip (Skip (Skip There))`
+
+Note that the use of a linked list to explain the construction of the referrer
+arguments is just a didactic device. The actual implementation uses the OCaml
+type system to ensure query correctness, and there are no type-level lists in
+OCaml, so function types are used instead.
+
+## The syntax extension
+
+According to extensive research with two developers, the `Skip`/`There` stuff
+is "not that bad". However, it would be nice to have them generated
+automatically, if only to make the queries look cleaner.
+
+Therefore, Sequoia includes a PPX syntax extension to do exactly that. If
+you decide to use it, simply append `%sql` to the `module` and `let` keywords
+used to define a table and query expression, respectively.
+
+The example above, with the sintax extension, would look like this:
 
 ```ocaml
-let pat = Sequoia.string "a%"
-let%sql query =
-  select
-    t.name
-  from
-    MyDB.my_table as_ t
-  where
-    (t.name like !pat && t.id > 1)
+module Mysql = Sequoia_mysql
+
+module%sql User = struct
+  include (val Mysql.table "users")
+  let id = Field.int "id"
+  let name = Field.string "name"
+end
+
+module%sql Book = struct
+  include (val Mysql.table "books")
+  let id = Field.int "id"
+  let owner = Field.foreign_key "owner_id" ~references:User.id
+  let publisher = Field.foreign_key "publisher_id" ~references:Publisher.id
+  let title = Field.string "title"
+  let author = Field.string "author"
+end
+
+module%sql BookUser = struct
+  include (val Mysql.table "books_user")
+  let book = Field.foreign_key "book_id" ~references:Book.id
+  let user = Field.foreign_key "user_id" ~references:User.id
+end
+
+module%sql Publisher = struct
+  include (val Mysql.table "books_user")
+  let id = Field.int "id"
+  let name = Field.string "name"
+end
+
+let%sql query, params = Mysql.(Select.(Expr.(
+  from BookUser.table
+    |> left_join belonging_to BookUser.user
+    |> left_join belonging_to BookUser.book
+    |> left_join having_one Book.publisher
+    |> select
+         [ field User.name
+         ; field Book.title
+         ; field Publisher.name
+         ]
+    |> where (field User.name) = field Book.author)
+    |> order_by [field User.name; field Book.title]
+    |> limit 10
+    |> seal
+)))
+
 ```
 
-If you reference a database, table or column that isn't declared via the
-@sql/@@sql attributes or call a nonexistent MySQL function, you get a
-compile-time error:
+Please note that the syntax extension only works when writing the query in
+the style above, using the `|>` operator, that is, with partial evaluation.
+This is because it detects the locations where the referrer arguments must
+be inserted by looking for single-argument `field` calls.
 
-```ocaml
-let%sql query =
-  select
-    (frob(t.name))
-  from
-    MyDB.my_table as_ t
-```
+In the future it might be extended to be more comprehensive.
 
-    This expression has type [> `Frob of [> `Column of string list ] ]
-    but an expression was expected of type Sequoia.Function.t
-    The second variant type does not allow tag(s) `Frob
+## Issues and limitations
 
-If you try to select a column from a table that's not in a from or join
-clause, you get an error too:
-
-```ocaml
-let%sql query = select MyDB.my_table.name
-```
-
-    Table `my_table` not selected in query
-
-There are many problems though. Off the top of my head:
-
-* Everything must be lowercase;
-* Error reporting sucks;
-* You need parentheses around OCaml expressions that wouldn't be needed
-  in real SQL;
-* Lots of MySQL functions are not defined yet so you'll get bogus
-  errors;
-* Due to syntax clash you need stuff like `as_` or `in_`;
-* Need to find a way to make it work when the DB definitions are in
-  separate files;
-* Conversion to string doesn't indent the query and is really
-  parenthesis-happy.
-* Everybody hates MySQL.
+* No arbitrary expressions on joins;
+* No `INSERT`, `UPDATE` or `DELETE` support (yet).
+* No documentation other than this file (yet).

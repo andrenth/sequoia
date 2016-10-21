@@ -1,1 +1,7 @@
+_build/
 setup.data
+setup.log
+*.swp
+*.native
+*.byte
+*.docdir

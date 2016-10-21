@@ -14,6 +14,33 @@ Library "sequoia"
   Path:             lib
   Modules:          Sequoia
 
+Flag mysql
+  Description:      Build the MySQL driver
+  Default:          true
+
+Library "sequoia_mysql"
+  Build$:           flag(mysql)
+  Install$:         flag(mysql)
+  FindlibParent:    sequoia
+  FindlibName:      mysql
+  Path:             lib/mysql
+  BuildDepends:     sequoia,
+                    unix
+  Modules:          Sequoia_mysql
+
+Flag sqlite
+  Description:      Build the SQLite driver
+  Default:          true
+
+Library "sequoia_sqlite"
+  Build$:           flag(sqlite)
+  Install$:         flag(sqlite)
+  FindlibParent:    sequoia
+  FindlibName:      sqlite
+  Path:             lib/sqlite
+  BuildDepends:     sequoia
+  Modules:          Sequoia_sqlite
+
 Flag ppx
   Description:      Build the ppx syntax extension
   Default:          true
@@ -34,14 +61,14 @@ Executable "ppx_sequoia"
   Path:             lib/ppx
   MainIs:           ppx_sequoia.ml
   BuildDepends:     compiler-libs.common,
-                    ppx_tools, str
+                    ppx_tools
   CompiledObject:   best
 
-Executable "t"
+Executable "ppx_test"
   Build$:           flag(ppx)
   Install:          false
   Path:             lib_test/ppx
   MainIs:           t.ml
   BuildTools:       ppx_sequoia
-  BuildDepends:     sequoia
+  BuildDepends:     sequoia, sequoia.mysql
   CompiledObject:   best

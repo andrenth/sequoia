@@ -1,48 +1,107 @@
 open Printf
+open Tables
+module Mysql = Sequoia_mysql
 
-module Db = struct
-  type t1 =
-    { id   : int    [@sql]
-    ; c1   : string [@sql "column1"]
-    ; c2   : string [@sql "c2"]
-    } [@@sql "t1"]
-
-  type t2 =
-    { id    : int    [@sql "id"]
-    ; t1_id : int    [@sql "t1_id"]
-    ; c1    : string [@sql "c1"]
-    ; c2    : string [@sql "c2"]
-    } [@@sql "t2"]
-end [@@sql "db"]
-
-let set = Sequoia.(list_of int) [1; 2; 3]
-let pat = Sequoia.string "foo%"
-let x = Sequoia.int 42
-(* A nonsense query to test most features *)
-let%sql query =
-  select
-    ((select q.c1 from Db.t2 as_ q) as_ sub,
-     foo.c1,
-     now(),
-     ifnull(Db.t1.c1, Db.t2.c2))
-  from
-    Db.t1 as_ foo
-  left join
-    Db.t2 on (Db.t2.t1_id = foo.id)
-  left join
-    Db.t2 as_ bar on (bar.t1_id = foo.id)
-  where
-    ((not exists (select 1))
-      && (Db.t1.c1 is null || Db.t1.c1 = !x)
-      && (Db.t2.c2 in_ !set || Db.t2.c2 in_ (10,20,30))
-      && (Db.t2.c2 not like !pat))
-  group by
-    (select Db.t2.c1)
-  having
-    (foo.c1 = 1)
-  order by
-    Db.t2.c1
-  limit (10, 20)
+let print_params ps =
+  printf "[\n%!";
+  let print_param = function
+    | Mysql.Param.Int i -> printf "  Int %d,\n%!" i
+    | Mysql.Param.String s -> printf "  String %s,\n%!" s
+    | Mysql.Param.Bool b -> printf "  Bool %b,\n%!" b
+    | _ -> printf "  <something else>,\n%!" in
+  let rec print = function
+    | [] -> printf "]\n%!"
+    | p::ps -> print_param p; print ps in
+  print ps
 
 let () =
-  printf "%s\n%!" (Sequoia.Select.to_string query)
+  let%sql query, params = Mysql.(Select.(Expr.(
+    from Team.table
+      |> left_join belonging_to Team.owner
+      |> right_join having_one Project.leader
+      |> select
+           [ field User.id
+           ; field User.name
+           ; field Team.id
+           ; field Team.name
+           ; subquery (from User.table |> select [field User.name])
+           ; field User.id + int 1
+           ; date_add (date ~year:2016 ~month:10 ~day:20) 30 Days
+           ; if_ (length (field User.name) > int 10) (field User.name) (string "short")
+           ; field User.id =? [int 1; int 2; int 3]
+           ]
+      |> where (field User.name =% "foo%" && is_not_null (field User.name))
+      |> order_by [field User.name]
+      |> limit 10
+      |> seal
+  ))) in
+  print_endline query;
+  print_params params
+
+let () = print_endline "==="
+
+let () =
+  let%sql query, params = Mysql.(Select.(
+    from TeamUser.table
+      |> left_join belonging_to TeamUser.team
+      |> right_join belonging_to TeamUser.user
+      |> inner_join having_one Project.leader
+      |> select Expr.
+           [ field Team.name
+           ; field User.name
+           ]
+      |> order_by Expr.[field User.name; field Team.name]
+      |> limit 10 ~offset:5
+      |> seal
+  )) in
+  print_endline query;
+  print_params params
+
+let () = print_endline "==="
+
+let () =
+  let query, params = Mysql.(Select.(
+    let src = from TeamUser.table in
+    let src = left_join belonging_to TeamUser.user There src in
+    let src = left_join belonging_to TeamUser.team (Skip There) src in
+    let sel = select Expr.[field User.name There; field Team.name (Skip There)] src in
+    let stmt = where Expr.(field Team.name (Skip There) =% "foo%") sel in
+    let stmt = order_by Expr.[field Team.name (Skip There)] stmt in
+    seal stmt
+  )) in
+  print_endline query;
+  print_params params
+
+let () = print_endline "==="
+
+let () =
+  let%sql query, params = Mysql.(Select.(
+    let src = from Team.table in
+    let src = inner_join belonging_to Team.owner There src in
+    let src = inner_join having_one Project.leader There src in
+    let sel = select Expr.[field Team.name (Skip (Skip There)); field Project.title There] src in
+    let stmt = where Expr.(field Project.title There =% "P%") sel in
+    seal stmt
+  )) in
+  print_endline query;
+  print_params params
+
+let () = print_endline "==="
+
+let () =
+  let query, params = Mysql.(Select.(
+    let src = from User.table in
+    let src = right_join having_one Team.owner There src in
+    let src = right_join having_one Project.leader (Skip There) src in
+    let sel = select Expr.
+      [ field Team.id There
+      ; field Team.name There
+      ; field User.id (Skip (Skip There))
+      ; field User.name (Skip (Skip There))
+      ]
+      src in
+    let stmt = where Expr.(field User.id (Skip (Skip There)) > int 42) sel in
+    seal stmt
+  )) in
+  print_endline query;
+  print_params params
