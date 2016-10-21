@@ -263,6 +263,12 @@ let rec map_module table references loc = function
   | { pstr_loc } :: rest ->
       map_module table references pstr_loc rest
 
+let load_state () =
+  let ch = open_in_bin dump_file in
+  let st = { tables = ref []; references = Marshal.from_channel ch } in
+  close_in ch;
+  st
+
 let sql_mapper references argv =
   { default_mapper with
     expr =
@@ -272,12 +278,7 @@ let sql_mapper references argv =
         | { pexp_desc = Pexp_extension ({ txt = "sql"; loc }, pstr) } ->
             begin match pstr with
             | PStr [{ pstr_desc = Pstr_eval (expr, _) }] ->
-                let ch = open_in_bin dump_file in
-                let st =
-                  { tables = ref []
-                  ; references = Marshal.from_channel ch
-                  } in
-                close_in ch;
+                let st = load_state () in
                 let expr = map_query st loc expr in
                 Ast_helper.with_default_loc loc (fun () -> expr)
             | _ ->
@@ -302,6 +303,14 @@ let sql_mapper references argv =
                 Marshal.to_channel ch references [];
                 close_out ch;
                 let str = Str.module_ m in
+                Ast_helper.with_default_loc loc (fun () -> str)
+            | PStr
+                [{ pstr_desc =
+                  Pstr_value (rec_flag, [{ pvb_expr } as b]) }] ->
+                let st = load_state () in
+                let expr = map_query st loc pvb_expr in
+                let binding = { b with pvb_expr = expr } in
+                let str = Str.value rec_flag [binding] in
                 Ast_helper.with_default_loc loc (fun () -> str)
             | _ ->
                 error loc "invalid sql"

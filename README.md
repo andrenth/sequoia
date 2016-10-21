@@ -186,24 +186,21 @@ module%sql BookUser = struct
   let user = Field.foreign_key "user_id" ~references:User.id
 end
 
-let () =
-  let%sql query, params = Mysql.(Select.(Expr.(
-    from BookUser.table
-      |> left_join belonging_to BookUser.user
-      |> left_join belonging_to BookUser.book
-      |> left_join belonging_to Book.publisher
-      |> select
-           [ field User.name
-           ; field Book.title
-           ; field Publisher.name
-           ]
-      |> where (field User.name) = field Book.author)
-      |> order_by [field User.name; field Book.title]
-      |> limit 10
-      |> seal
-  ))) in
-  print_endline query
-
+let%sql query, params = Mysql.(Select.(Expr.(
+  from BookUser.table
+    |> left_join belonging_to BookUser.user
+    |> left_join belonging_to BookUser.book
+    |> left_join belonging_to Book.publisher
+    |> select
+         [ field User.name
+         ; field Book.title
+         ; field Publisher.name
+         ]
+    |> where (field User.name) = field Book.author)
+    |> order_by [field User.name; field Book.title]
+    |> limit 10
+    |> seal
+)))
 ```
 
 Please note that the syntax extension only works when writing the query in
