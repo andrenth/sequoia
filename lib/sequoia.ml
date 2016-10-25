@@ -43,14 +43,34 @@ module Make (D : Driver) = struct
       | String : string * 't Table.t -> ('t, string) t
       | Blob : string * 't Table.t -> ('t, bytes) t
 
+    module Null = struct
+      type ('t, 'a) t +=
+        | Bool : string * 't Table.t -> ('t, bool option) t
+        | Int : string * 't Table.t -> ('t, int option) t
+        | Float : string * 't Table.t -> ('t, float option) t
+        | String : string * 't Table.t -> ('t, string option) t
+        | Blob : string * 't Table.t -> ('t, bytes option) t
+
+      let bool table name = Bool (name, table)
+      let int table name = Int (name, table)
+      let float table name = Float (name, table)
+      let string table name = String (name, table)
+      let blob table name = Blob (name, table)
+    end
+
     type ('t1, 't2) foreign_key = ('t1, int) t * ('t2, int) t
 
-    let table: type u a. (u, a) t -> u Table.t = function
+    let table : type u a. (u, a) t -> u Table.t = function
       | Bool (_, t) -> t
       | Int (_, t) -> t
       | Float (_, t) -> t
       | String (_, t) -> t
       | Blob (_, t) -> t
+      | Null.Bool (_, t) -> t
+      | Null.Int (_, t) -> t
+      | Null.Float (_, t) -> t
+      | Null.String (_, t) -> t
+      | Null.Blob (_, t) -> t
 
     let to_string : type a b. (a, b) t -> string = function
       | Bool (name, table) -> sprintf "%s.%s" table.Table.name name
@@ -58,8 +78,14 @@ module Make (D : Driver) = struct
       | Float (name, table) -> sprintf "%s.%s" table.Table.name name
       | String (name, table) -> sprintf "%s.%s" table.Table.name name
       | Blob (name, table) -> sprintf "%s.%s" table.Table.name name
+      | Null.Bool (name, table) -> sprintf "%s.%s" table.Table.name name
+      | Null.Int (name, table) -> sprintf "%s.%s" table.Table.name name
+      | Null.Float (name, table) -> sprintf "%s.%s" table.Table.name name
+      | Null.String (name, table) -> sprintf "%s.%s" table.Table.name name
+      | Null.Blob (name, table) -> sprintf "%s.%s" table.Table.name name
 
     let foreign_key table name ~references = (Int (name, table), references)
+
     let bool table name = Bool (name, table)
     let int table name = Int (name, table)
     let float table name = Float (name, table)
@@ -74,22 +100,51 @@ module Make (D : Driver) = struct
       type table = t
       type 'a t = (table, 'a) Field.t
       type 't foreign_key = (table, 't) Field.foreign_key
+
+      val bool : string -> bool t
       val int : string -> int t
+      val float : string -> float t
       val string : string -> string t
+      val blob : string -> bytes t
+
       val foreign_key : string -> references:('t, int) Field.t -> 't foreign_key
+
+      module Null : sig
+        val bool : string -> bool option t
+        val int : string -> int option t
+        val float : string -> float option t
+        val string : string -> string option t
+        val blob : string -> bytes option t
+      end
     end
   end
 
   module MakeTable (T: NAMED) : TABLE = struct
     type t = T.t
+
     let table = Table.called T.name
+
     module Field = struct
       type table = t
       type 'a t = (table, 'a) Field.t
       type 't foreign_key = (table, 't) Field.foreign_key
+
+      let bool = Field.bool table
       let int = Field.int table
+      let float = Field.float table
       let string = Field.string table
-      let foreign_key name ~references = Field.foreign_key table name ~references
+      let blob = Field.blob table
+
+      let foreign_key name ~references =
+        Field.foreign_key table name ~references
+
+      module Null = struct
+        let bool = Field.Null.bool table
+        let int = Field.Null.int table
+        let float = Field.Null.float table
+        let string = Field.Null.string table
+        let blob = Field.Null.blob table
+      end
     end
   end
 
@@ -353,8 +408,8 @@ module Make (D : Driver) = struct
       | Not_like : string t * string -> bool t
       | In : 'a t * 'a t list -> bool t
       | Not_in : 'a t * 'a t list -> bool t
-      | Is_not_null : 'a t -> bool t
-      | Is_null : 'a t -> bool t
+      | Is_not_null : 'a option t -> bool t
+      | Is_null : 'a option t -> bool t
       | IAdd : int t * int t -> int t
       | ISub : int t * int t -> int t
       | IMul : int t * int t -> int t
@@ -385,6 +440,7 @@ module Make (D : Driver) = struct
     val field : ('t, 'a) Field.t -> ('b, 'c, 't, 'd) Select.steps -> 'b Select.source -> 'a t
     val foreign_key : ('t1, 't2) Field.foreign_key -> ('a, 'b, 't1, 'c) Select.steps -> 'a Select.source -> 'd t
     val subquery : 's Select.t -> 't Select.source -> 'c t
+    val assured : ('t, 'a option) Field.t -> ('b, 'c, 't, 'd) Select.steps -> 'b Select.source -> 'a t
 
     val (=) : ('s Select.source -> 'a t) -> ('s Select.source -> 'a t) -> 's Select.source
            -> bool t
@@ -426,8 +482,8 @@ module Make (D : Driver) = struct
             -> 's Select.source -> bool t
     val (<>?) : ('s Select.source -> 'a t) -> ('s Select.source -> 'a t) list
              -> 's Select.source -> bool t
-    val is_null : ('s Select.source -> 'a t) -> 's Select.source -> bool t
-    val is_not_null : ('s Select.source -> 'a t) -> 's Select.source -> bool t
+    val is_null : ('s Select.source -> 'a option t) -> 's Select.source -> bool t
+    val is_not_null : ('s Select.source -> 'a option t) -> 's Select.source -> bool t
 
     type _ list =
       | [] : 'a list
@@ -462,8 +518,8 @@ module Make (D : Driver) = struct
       | Not_like : string t * string -> bool t
       | In : 'a t * 'a t list -> bool t
       | Not_in : 'a t * 'a t list -> bool t
-      | Is_not_null : 'a t -> bool t
-      | Is_null : 'a t -> bool t
+      | Is_not_null : 'a option t -> bool t
+      | Is_null : 'a option t -> bool t
       | IAdd : int t * int t -> int t
       | ISub : int t * int t -> int t
       | IMul : int t * int t -> int t
@@ -486,6 +542,18 @@ module Make (D : Driver) = struct
     let field fld steps = fun src -> Field (fld, src, steps)
     let foreign_key fk steps = fun src -> Foreign (fk, src, steps)
     let subquery sel = fun src -> Select sel
+
+    (* XXX is there a better name for this? *)
+    let assured
+      : type a. ('t, a option) Field.t -> ('b, 'c, 't, 'd) Select.steps
+             -> 'b Select.source -> a t =
+      fun fld steps src ->
+        match fld with
+        | Field.Null.Bool (n, t) -> Field (Field.Bool (n, t), src, steps)
+        | Field.Null.Int (n, t) -> Field (Field.Int (n, t), src, steps)
+        | Field.Null.Float (n, t) -> Field (Field.Float (n, t), src, steps)
+        | Field.Null.String (n, t) -> Field (Field.String (n, t), src, steps)
+        | Field.Null.Blob (n, t) -> Field (Field.Blob (n, t), src, steps)
 
     type handover = { handover : 'a. build_step -> 'a t -> build_step }
 

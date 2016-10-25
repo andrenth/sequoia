@@ -4,6 +4,7 @@ module%sql User = struct
   include (val Mysql.table "users")
   let id = Field.int "id"
   let name = Field.string "name"
+  let site = Field.Null.string "site"
 end
 
 module%sql Team = struct

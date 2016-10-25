@@ -40,13 +40,40 @@ module Param = struct
 end
 
 module Field = struct
-  include M.Field
+  include (M.Field : module type of M.Field
+    with module Null := M.Field.Null)
 
   type ('t, 'a) t +=
     | Time : string * 't M.Table.t -> ('t, [`Time] time) t
     | Timestamp : string * 't M.Table.t -> ('t, [`Timestamp] time) t
     | Date : string * 't M.Table.t -> ('t, [`Date] time) t
     | Datetime : string * 't M.Table.t -> ('t, [`Datetime] time) t
+
+  module Null = struct
+    include M.Field.Null
+
+    type ('t, 'a) t +=
+      | Time : string * 't M.Table.t -> ('t, [`Time] time option) t
+      | Timestamp : string * 't M.Table.t -> ('t, [`Timestamp] time option) t
+      | Date : string * 't M.Table.t -> ('t, [`Date] time option) t
+      | Datetime : string * 't M.Table.t -> ('t, [`Datetime] time option) t
+
+    let time table name = Time (name, table)
+    let timestamp table name = Timestamp (name, table)
+    let date table name = Date (name, table)
+    let datetime table name = Datetime (name, table)
+  end
+
+  let to_string : type a b. (a, b) t -> string = function
+    | Time (name, table) -> sprintf "%s.%s" table.Table.name name
+    | Timestamp (name, table) -> sprintf "%s.%s" table.Table.name name
+    | Date (name, table) -> sprintf "%s.%s" table.Table.name name
+    | Datetime (name, table) -> sprintf "%s.%s" table.Table.name name
+    | Null.Time (name, table) -> sprintf "%s.%s" table.Table.name name
+    | Null.Timestamp (name, table) -> sprintf "%s.%s" table.Table.name name
+    | Null.Date (name, table) -> sprintf "%s.%s" table.Table.name name
+    | Null.Datetime (name, table) -> sprintf "%s.%s" table.Table.name name
+    | other -> to_string other
 
   let time table name = Time (name, table)
   let timestamp table name = Timestamp (name, table)
@@ -137,7 +164,7 @@ module Expr = struct
     | From_days : int t -> [`Date] time t
     | From_unixtime : int t -> [`Datetime] time t
     | If : bool t * 'a t * 'a t -> 'a t
-    | Ifnull : 'a t * 'a t -> 'a t
+    | Ifnull : 'a option t * 'a t -> 'a t
     | Last_day : [< `Date | `Datetime] time t -> [`Date] time t
     | Length : string t -> int t
     | Localtime : [`Time] time t
@@ -153,7 +180,7 @@ module Expr = struct
     | Month : 'k time t -> int t
     | Monthname : 'k time t -> string t
     | Now : [`Time] time t
-    | Nullif : 'a t * 'a t -> 'a t
+    | Nullif : 'a t * 'a t -> 'a option t
     | Ord : string t -> int t
     | Pow : int t -> int t
     | Radians : float t -> float t
@@ -261,7 +288,10 @@ module Expr = struct
           Sequoia.{ st2 with params = st1.params @ st2.params }
       | From_days e -> fn "FROM_DAYS(" [e] ")"
       | From_unixtime e -> fn "FROM_UNIXTIME(" [e] ")"
-      | Ifnull (e1, e2) -> fn "IFNULL(" [e1; e2] ")"
+      | Ifnull (e1, e2) ->
+          let st1 = fn "IFNULL(" [e1] "" in
+          let st2 = fn ~st:st1 (st1.repr ^ ", ") [e2] ")" in
+          Sequoia.{ st2 with params = st1.params @ st2.params }
       | Last_day e -> fn "LAST_DAY(" [e] ")"
       | Length e -> fn "LENGTH(" [e] ")"
       | Localtime -> fn "LOCALTIME(" [] ")"
@@ -311,6 +341,17 @@ module Expr = struct
       | Trim e -> fn "TRIM(" [e] ")"
       | Uncompress e -> fn "UNCOMPRESS(" [e] ")"
       | e -> build ~handover st e
+
+  let assured
+    : type a. ('t, a option) Field.t -> ('b, 'c, 't, 'd) M.Select.steps
+           -> 'b M.Select.source -> a t =
+    fun fld sts src ->
+      match fld with
+      | Field.Null.Time (n, t) -> Field (Field.Time (n, t), src, sts)
+      | Field.Null.Timestamp (n, t) -> Field (Field.Timestamp (n, t), src, sts)
+      | Field.Null.Date (n, t) -> Field (Field.Date (n, t), src, sts)
+      | Field.Null.Datetime (n, t) -> Field (Field.Datetime (n, t), src, sts)
+      | _ -> assured fld sts src
 
   let time ?(hour = 0) ?(minute = 0) ?(second = 0) = fun _ ->
     Time { base_time with hour; minute; second }

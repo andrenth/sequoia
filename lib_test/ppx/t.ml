@@ -27,10 +27,15 @@ let () =
            ; subquery (from User.table |> select [field User.name])
            ; field User.id + int 1
            ; date_add (date ~year:2016 ~month:10 ~day:20) 30 Days
-           ; if_ (length (field User.name) > int 10) (field User.name) (string "short")
+           ; if_ (length (field User.name) > int 10)
+               (field User.name)
+               (string "short")
+           ; if_ (is_null (field User.site))
+               (string "no site")
+               (assured User.site)
            ; field User.id =? [int 1; int 2; int 3]
            ]
-      |> where (field User.name =% "foo%" && is_not_null (field User.name))
+      |> where (field User.name =% "foo%" && is_not_null (field User.site))
       |> order_by [field User.name]
       |> limit 10
       |> seal
