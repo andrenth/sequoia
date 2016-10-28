@@ -110,3 +110,21 @@ let () =
   )) in
   print_endline query;
   print_params params
+
+let () = print_endline "==="
+
+module V = Sequoia.Vector
+
+let () =
+  let query, params = Mysql.(Insert.(Vector.(Expr.(Vector.(
+    insert
+      ~into:User.table
+      ~fields:[User.id; User.name]
+      ~values:[
+        [int 1; string "a"];
+        [int 2; string "b"];
+      ]
+    |> build
+  ))))) in
+  print_endline query;
+  print_params params

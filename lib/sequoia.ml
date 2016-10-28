@@ -1,5 +1,66 @@
 open Printf
 
+module Nat = struct
+  type z
+  type 'n s = S
+end
+
+module type Elem = sig
+  type ('a, 'b) elem
+end
+
+module type VECTOR = sig
+  type ('a, 'b) elem
+
+  type (_, _, _) t =
+    | [] : ('a, 'b, Nat.z) t
+    | (::) : ('a, 'b) elem * ('a, 'c, 'n) t -> ('a, 'b * 'c, 'n Nat.s) t
+
+  type 'z folder = { f : 'a 'b. 'z -> ('a, 'b) elem -> 'z }
+
+  val fold_left : 'z folder -> 'z -> ('a, 'b, 'n) t -> 'z
+
+  type ('a, 'b, 'm, 'n) matrix =
+    | [] : ('a, 'b, Nat.z, 'n) matrix
+    | (::) : ('a, 'b, 'n) t * ('a, 'b, 'm, 'n) matrix
+          -> ('a, 'b, 'm Nat.s, 'n) matrix
+
+  val matrix_fold_left : 'z folder -> 'z -> ('a, 'b, 'm, 'n) matrix -> 'z
+end
+
+module Vector = struct
+  module Make (E : Elem) : VECTOR
+    with type ('a, 'b) elem := ('a, 'b) E.elem =
+  struct
+    type (_, _, _) t =
+      | [] : ('a, 'b, Nat.z) t
+      | (::) : ('a, 'b) E.elem * ('a, 'c, 'n) t -> ('a, 'b * 'c, 'n Nat.s) t
+
+    type 'z folder = { f : 'a 'b. 'z -> ('a, 'b) E.elem -> 'z }
+
+    let rec fold_left
+      : type a b n. 'z folder -> 'z -> (a, b, n) t -> 'z =
+      fun f z -> function
+        | [] -> z
+        | e::es -> fold_left f (f.f z e) es
+
+    type ('a, 'b, 'm, 'n) matrix =
+      | [] : ('a, 'b, Nat.z, 'n) matrix
+      | (::) : ('a, 'b, 'n) t * ('a, 'b, 'm, 'n) matrix
+            -> ('a, 'b, 'm Nat.s, 'n) matrix
+
+    type 'z matrix_folder = { mf : 'a 'b. 'z -> ('a, 'b) E.elem -> 'z }
+
+    let rec matrix_fold_left
+      : type a b m n. 'z folder -> 'z -> (a, b, m, n) matrix -> 'z =
+      fun f z -> function
+        | [] -> z
+        | v::vs ->
+            let z = fold_left f z v in
+            matrix_fold_left f z vs
+  end
+end
+
 module type NAMED = sig
   type t
   val name : string
@@ -60,6 +121,18 @@ module Make (D : Driver) = struct
 
     type ('t1, 't2) foreign_key = ('t1, int) t * ('t2, int) t
 
+    let name : type a. ('t, a) t -> string = function
+      | Bool (n, _) -> n
+      | Int (n, _) -> n
+      | Float (n, _) -> n
+      | String (n, _) -> n
+      | Blob (n, _) -> n
+      | Null.Bool (n, _) -> n
+      | Null.Int (n, _) -> n
+      | Null.Float (n, _) -> n
+      | Null.String (n, _) -> n
+      | Null.Blob (n, _) -> n
+
     let table : type u a. (u, a) t -> u Table.t = function
       | Bool (_, t) -> t
       | Int (_, t) -> t
@@ -72,17 +145,9 @@ module Make (D : Driver) = struct
       | Null.String (_, t) -> t
       | Null.Blob (_, t) -> t
 
-    let to_string : type a b. (a, b) t -> string = function
-      | Bool (name, table) -> sprintf "%s.%s" table.Table.name name
-      | Int (name, table) -> sprintf "%s.%s" table.Table.name name
-      | Float (name, table) -> sprintf "%s.%s" table.Table.name name
-      | String (name, table) -> sprintf "%s.%s" table.Table.name name
-      | Blob (name, table) -> sprintf "%s.%s" table.Table.name name
-      | Null.Bool (name, table) -> sprintf "%s.%s" table.Table.name name
-      | Null.Int (name, table) -> sprintf "%s.%s" table.Table.name name
-      | Null.Float (name, table) -> sprintf "%s.%s" table.Table.name name
-      | Null.String (name, table) -> sprintf "%s.%s" table.Table.name name
-      | Null.Blob (name, table) -> sprintf "%s.%s" table.Table.name name
+    let to_string fld =
+      let t = table fld in
+      sprintf "%s.%s" (t.Table.name) (name fld)
 
     let foreign_key table name ~references = (Int (name, table), references)
 
@@ -723,5 +788,105 @@ module Make (D : Driver) = struct
       | e::es -> (f.m e)::mapmk f es
 
     let listmk_to_list src = mapmk { m = fun f -> f src }
+  end
+
+  module Insert = struct
+    module Expr = struct
+      type 'a t = ..
+      type 'a t +=
+        | Int : int -> int t
+        | String : string -> string t
+
+      module Null = struct
+        type 'a t +=
+          | Int : int -> int option t
+          | String : string -> string option t
+      end
+
+      let to_string : type a. a t -> string = function
+        | Int i -> string_of_int i
+        | String s -> s
+        | Null.Int i -> string_of_int i
+        | Null.String s -> s
+
+      let int i = Int i
+      let string s = String s
+      let string_or_null s = Null.String s
+
+      let to_param : type a. a t -> Param.t = function
+        | Int i -> Param.Int i
+        | String s -> Param.String s
+        | Null.Int i -> Param.Int i
+        | Null.String s -> Param.String s
+
+      module Vector = Vector.Make(struct type ('a, 'b) elem = 'b t end)
+    end
+
+    module Vector =
+      Vector.Make(struct type ('a, 'b) elem = ('a, 'b) Field.t end)
+
+    type _ t =
+      | I :
+          { table  : 't Table.t
+          ; fields : ('t, 'a, 'n Nat.s) Vector.t
+          ; values : ('u, 'a, 'm Nat.s, 'n Nat.s) Expr.Vector.matrix
+          } -> 'i t
+
+    let insert
+      : type a n. into:'u Table.t
+               -> fields:('u, a, n Nat.s) Vector.t
+               -> values:('v, a, 'm Nat.s, n Nat.s) Expr.Vector.matrix
+               -> 'i t =
+      fun ~into ~fields ~values ->
+        I { table = into; fields; values }
+
+    let rec join_fields
+      : type u a n. (u, a, n) Vector.t -> string =
+      fun flds ->
+        let open Vector in
+        match flds with
+        | [] -> assert false
+        | [f] -> Field.name f
+        | f::fs -> Field.name f ^ ", " ^ join_fields fs
+
+    let expr_placeholders i vs =
+      let open Expr in
+      let rec eps
+        : type t a n. int -> (t, a, n) Expr.Vector.t -> string list =
+        fun i exprs ->
+          let open Expr.Vector in
+          match exprs with
+          | [] -> []
+          | _::es -> D.placeholder i :: eps (i+1) es in
+      eps i vs
+
+    let placeholders
+      : type a m. ('v, a, m, 'n) Expr.Vector.matrix -> string =
+      fun values ->
+        let rec pss
+          : type a m. int -> ('v, a, m, 'n) Expr.Vector.matrix -> string =
+          fun i vals ->
+            let open Expr.Vector in
+            match vals with
+            | [] -> ""
+            | v::vs ->
+                let ps = expr_placeholders i v in
+                let n = i + List.length ps in
+                sprintf "(%s)\n%s" (String.concat ", " ps) (pss n vs) in
+        pss 1 values
+
+    let params_of_values : type a. (a, 'b, 'm, 'n) Expr.Vector.matrix -> Param.t list = fun values ->
+      Expr.Vector.matrix_fold_left
+        { Expr.Vector.f = fun acc e -> Expr.to_param e :: acc }
+        []
+        values
+
+    let build (I { table; fields; values }) =
+      let s =
+        sprintf "INSERT INTO %s (%s) VALUES\n%s"
+          (Table.to_string table)
+          (join_fields fields)
+          (placeholders values) in
+      s, List.rev @@ params_of_values values
   end
 end
