@@ -803,24 +803,44 @@ module Make (D : Driver) = struct
     module Expr = struct
       type 'a t = ..
       type 'a t +=
+        | Bool : bool -> bool t
         | Int : int -> int t
+        | Float : float -> float t
         | String : string -> string t
+        | Blob : bytes -> bytes t
 
       module Null = struct
         type 'a t +=
+          | Bool : bool -> bool option t
           | Int : int -> int option t
+          | Float : float -> float option t
           | String : string -> string option t
+          | Blob : bytes -> bytes option t
+
+        let bool b = Bool b
+        let int i = Int i
+        let float x = Float x
+        let string s = String s
+        let blob b = Blob b
       end
 
       let to_string : type a. a t -> string = function
+        | Bool b -> string_of_bool b
         | Int i -> string_of_int i
+        | Float x -> string_of_float x
         | String s -> s
+        | Blob b -> b
+        | Null.Bool b -> string_of_bool b
         | Null.Int i -> string_of_int i
+        | Null.Float x -> string_of_float x
         | Null.String s -> s
+        | Null.Blob b -> b
 
+      let bool b = Bool b
       let int i = Int i
+      let float x = Float x
       let string s = String s
-      let string_or_null s = Null.String s
+      let blob b = Blob b
 
       let to_param : type a. a t -> Param.t = function
         | Int i -> Param.Int i

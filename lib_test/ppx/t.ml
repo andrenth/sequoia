@@ -127,10 +127,10 @@ let () =
   let query, params = Mysql.(Insert.(Vector.(Expr.(Vector.(
     insert
       ~into:User.table
-      ~fields:[User.id; User.name]
+      ~fields:[User.id; User.name; User.site]
       ~values:[
-        [int 1; string "a"];
-        [int 2; string "b"];
+        [int 1; string "a"; Null.string "a.com"];
+        [int 2; string "b"; Null.string "b.com"];
       ]
     |> build
   ))))) in
