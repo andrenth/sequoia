@@ -221,18 +221,11 @@ module Make (D : Driver) = struct
   module rec Select : sig
     type _ t
 
-    type join
-      = Left
-      | Right
-      | Inner
+    type 's source
 
     type ('s1, 't1, 't2, 's2) join_steps =
       | There : (('t2 -> _) as 's1, 't1, 't2, 't1 -> 's1) join_steps
       | Skip : ('s1, 't1, 't2, 's2) join_steps -> ('a -> 's1, 't1, 't2, 'a -> 's2) join_steps
-
-    type 's source =
-      | From : 't Table.t -> ('t -> unit) source
-      | Join : join * ('t1, 't2) Field.foreign_key * 's1 source * ('s1, 't1, 't2, 's2) join_steps -> 's2 source
 
     type ('s1, 't1, 't2, 's2) steps =
       | There : (('t2 -> _) as 's1, 't1, 't2, 's1) steps
