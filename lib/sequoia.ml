@@ -221,18 +221,25 @@ module Make (D : Driver) = struct
   module rec Select : sig
     type _ t
 
-    type 's source
+    type join
+      = Left
+      | Right
+      | Inner
 
     type ('s1, 't1, 't2, 's2) join_steps =
       | There : (('t2 -> _) as 's1, 't1, 't2, 't1 -> 's1) join_steps
       | Skip : ('s1, 't1, 't2, 's2) join_steps -> ('a -> 's1, 't1, 't2, 'a -> 's2) join_steps
+
+    type 's source =
+      | From : 't Table.t -> ('t -> unit) source
+      | Join : join * ('t1, 't2) Field.foreign_key * 's1 source * ('s1, 't1, 't2, 's2) join_steps -> 's2 source
 
     type ('s1, 't1, 't2, 's2) steps =
       | There : (('t2 -> _) as 's1, 't1, 't2, 's1) steps
       | Skip : ('s1, 't1, 't2, 's2) steps -> ('a -> 's1, 't1, 't2, 'a -> 's2) steps
 
     val seal : ?handover:Expr.handover -> 's t -> string * Param.t list
-    val select : ('a, 's) Expr.listmk -> 's source -> 's t
+    val select : ('s, 'a, 'n Nat.s) Expr.VectorMk.t -> 's source -> 's t
 
     val from : 't Table.t -> ('t -> unit) source
     val left_join  : ('a -> ('t1, 't2) Field.foreign_key)
@@ -256,7 +263,7 @@ module Make (D : Driver) = struct
 
     val where : ('a source -> 'b Expr.t) -> 'a t -> 'a t
     val group_by : ('s source -> 'a Expr.t) -> 's t -> 's t
-    val order_by : ('a, 's) Expr.listmk -> 's t -> 's t
+    val order_by : ('s, 'a, 'n Nat.s) Expr.VectorMk.t -> 's t -> 's t
     val limit : ?offset:int -> int -> 'a t -> 'a t
 
   end = struct
@@ -280,10 +287,10 @@ module Make (D : Driver) = struct
     type _ t =
       | S :
           { source   : 's source
-          ; select   : 'a Expr.list
+          ; select   : ('a, _, 'n Nat.s) Expr.Vector.t
           ; where    : 'b Expr.t option
           ; group_by : 'c Expr.t option
-          ; order_by : 'd Expr.list
+          ; order_by : ('d, _, 'm Nat.s) Expr.Vector.t option
           ; limit    : (int * int) option
           } -> 's t
 
@@ -293,8 +300,8 @@ module Make (D : Driver) = struct
       | Inner -> "INNER"
 
     let join_exprs ~handover st =
-      Expr.fold_left
-        { Expr.f = fun (st, i) e ->
+      Expr.Vector.fold_left
+        { Expr.Vector.f = fun (st, i) e ->
           let st' = Expr.build ~handover st e in
           if i = 0 then
             (st', 1)
@@ -311,7 +318,9 @@ module Make (D : Driver) = struct
       fst (join_exprs ~handover st exprs)
 
     let rec build_source
-      : type s. handover:Expr.handover -> build_step -> 'a Expr.list -> s source
+      : type s. handover:Expr.handover
+             -> build_step
+             -> ('a, _, 'n) Expr.Vector.t -> s source
              -> build_step =
       fun ~handover st sel -> function
         | From t ->
@@ -355,13 +364,12 @@ module Make (D : Driver) = struct
         | None ->
             { blank_step with pos = st.pos }
 
-    let build_order_by ~handover st (exprs:'a Expr.list) =
-      let open Expr in
-      match exprs with
-      | [] -> st
-      | es ->
-          let st = fst (join_exprs ~handover st es) in
+    let build_order_by ~handover st = function
+      | Some exprs ->
+          let st = fst (join_exprs ~handover st exprs) in
           { st with repr = "ORDER BY " ^ st.repr }
+      | None ->
+          st
 
     let build_limit = fun st lim ->
       match lim with
@@ -417,13 +425,13 @@ module Make (D : Driver) = struct
 
     let to_string stmt = fst (seal stmt)
 
-    let select : type s. ('a, s) Expr.listmk -> s source -> s Select.t = fun bl src ->
+    let select : type s a. (s, a, 'n Nat.s) Expr.VectorMk.t -> s source -> s Select.t = fun bl src ->
       S
         { source = src
-        ; select = Expr.listmk_to_list src bl
+        ; select = Expr.vectormk_to_vector src bl
         ; where = None
         ; group_by = None
-        ; order_by = Expr.[]
+        ; order_by = None
         ; limit = None
         }
 
@@ -446,8 +454,13 @@ module Make (D : Driver) = struct
     let group_by expr (S stmt) =
       S { stmt with group_by = Some (expr stmt.source) }
 
-    let order_by : type s. ('a, s) Expr.listmk -> s Select.t -> s Select.t = fun bl (S stmt) ->
-      S { stmt with order_by = Expr.listmk_to_list stmt.source bl }
+    let order_by
+      : type a s n. (s, a, n Nat.s) Expr.VectorMk.t
+             -> s Select.t
+             -> s Select.t =
+      fun bl (S stmt) ->
+        let vec = Expr.vectormk_to_vector stmt.source bl in
+        S { stmt with order_by = Some vec }
 
     let limit ?(offset = 0) n (S stmt) =
       S { stmt with limit = Some (offset, n) }
@@ -550,18 +563,18 @@ module Make (D : Driver) = struct
     val is_null : ('s Select.source -> 'a option t) -> 's Select.source -> bool t
     val is_not_null : ('s Select.source -> 'a option t) -> 's Select.source -> bool t
 
-    type _ list =
-      | [] : 'a list
-      | (::) : 'a t * 'b list -> ('a * 'b) list
+    type ('a, 'b) expr = 'b t
 
-    type 'a fold_f = { f : 'b. 'a -> 'b t -> 'a }
-    val fold_left : 'a fold_f -> 'a -> 'b list -> 'a
+    module Vector :
+      VECTOR with type ('a, 'b) elem := ('a, 'b) expr
 
-    type ('a, 's) listmk =
-      | [] : ('a, 's) listmk
-      | (::) : ('s Select.source -> 'a t) * ('b, 's) listmk -> ('a * 'b, 's) listmk
+    type ('s, 'a) mk = 's Select.source -> 'a t
 
-    val listmk_to_list : 's Select.source -> ('a, 's) listmk -> 'a list
+    module VectorMk :
+      VECTOR with type ('s, 'a) elem := ('s, 'a) mk
+
+    val vectormk_to_vector : 's Select.source -> ('s, 'a, 'n) VectorMk.t
+                          -> ('s, 'a, 'n) Vector.t
 
   end = struct
     type 'a t = ..
@@ -767,27 +780,30 @@ module Make (D : Driver) = struct
     let is_null     f   = fun src -> Is_null (f src)
     let is_not_null f   = fun src -> Is_not_null (f src)
 
-    type _ list =
-      | [] : 'a list
-      | (::) : 'a t * 'b list -> ('a * 'b) list
+    type ('s, 'a) mk = 's Select.source -> 'a t
+    type ('a, 'b) expr = 'b t
 
-    type 'a fold_f = { f : 'b. 'a -> 'b t -> 'a }
+    module VectorMk = Vector.Make(struct
+      type ('s, 'a) elem = ('s, 'a) mk
+    end)
 
-    let rec fold_left : type b. 'a fold_f -> 'a -> b list -> 'a = fun f z -> function
-      | [] -> z
-      | e::es -> fold_left f (f.f z e) es
+    module Vector = Vector.Make(struct
+      type ('a, 'b) elem = 'b t
+    end)
 
-    type ('a, 's) listmk =
-      | [] : ('a, 's) listmk
-      | (::) : ('s Select.source -> 'a t) * ('b, 's) listmk -> ('a * 'b, 's) listmk
-
-    type 's map_f = { m : 'a. ('s Select.source -> 'a t) -> 'a t }
-
-    let rec mapmk : type a. 's map_f -> (a, 's) listmk -> a list = fun f -> function
-      | [] -> []
-      | e::es -> (f.m e)::mapmk f es
-
-    let listmk_to_list src = mapmk { m = fun f -> f src }
+    let rec vectormk_to_vector
+      : type a s n. s Select.source
+                 -> (s, a, n) VectorMk.t
+                 -> (s, a, n) Vector.t =
+      fun src vec ->
+        let open VectorMk in
+        match vec with
+        | [] ->
+            let open Vector in
+            []
+        | f::fs ->
+            let open Vector in
+            (f src) :: vectormk_to_vector src fs
   end
 
   module Insert = struct
@@ -819,11 +835,14 @@ module Make (D : Driver) = struct
         | Null.Int i -> Param.Int i
         | Null.String s -> Param.String s
 
-      module Vector = Vector.Make(struct type ('a, 'b) elem = 'b t end)
+      module Vector = Vector.Make(struct
+        type ('a, 'b) elem = 'b t
+      end)
     end
 
-    module Vector =
-      Vector.Make(struct type ('a, 'b) elem = ('a, 'b) Field.t end)
+    module Vector = Vector.Make(struct
+      type ('t, 'a) elem = ('t, 'a) Field.t
+    end)
 
     type _ t =
       | I :

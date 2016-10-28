@@ -82,11 +82,7 @@ module Field = struct
 end
 
 module Expr = struct
-  type 'a expr_list = 'a M.Expr.list =
-    | [] : 'a expr_list
-    | (::) : 'a M.Expr.t * 'b expr_list -> ('a * 'b) expr_list
-
-  include (M.Expr : module type of M.Expr with type 'a list := 'a expr_list)
+  include M.Expr
 
   type time_unit
     = Seconds
@@ -474,8 +470,6 @@ module Expr = struct
   let weekofyear () = fun src -> Weekofyear
   let upper f = fun src -> Upper (f src)
   let year () = fun src -> Year
-
-  type 'a list = 'a expr_list
 end
 
 module Select = struct

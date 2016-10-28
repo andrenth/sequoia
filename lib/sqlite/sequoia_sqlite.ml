@@ -9,11 +9,7 @@ include (M : module type of M
    and module Field  := M.Field)
 
 module Expr = struct
-  type 'a expr_list = 'a M.Expr.list =
-    | [] : 'a expr_list
-    | (::) : 'a M.Expr.t * 'b expr_list -> ('a * 'b) expr_list
-
-  include (M.Expr : module type of M.Expr with type 'a list := 'a expr_list)
+  include M.Expr
 
   type 'a t +=
       (* Core functions *)
@@ -159,8 +155,6 @@ module Expr = struct
 	let min_agg f = fun src -> MinAgg (f src)
 	let sum f = fun src -> Sum (f src)
 	let total f = fun src -> Total (f src)
-
-  type 'a list = 'a expr_list
 end
 
 module Select = struct
