@@ -342,7 +342,7 @@ module Expr = struct
       | Uncompress e -> fn "UNCOMPRESS(" [e] ")"
       | e -> build ~handover st e
 
-  let assured
+  let unwrap
     : type a. ('t, a option) Field.t -> ('b, 'c, 't, 'd) M.Select.steps
            -> 'b M.Select.source -> a t =
     fun fld sts src ->
@@ -351,7 +351,7 @@ module Expr = struct
       | Field.Null.Timestamp (n, t) -> Field (Field.Timestamp (n, t), src, sts)
       | Field.Null.Date (n, t) -> Field (Field.Date (n, t), src, sts)
       | Field.Null.Datetime (n, t) -> Field (Field.Datetime (n, t), src, sts)
-      | _ -> assured fld sts src
+      | _ -> unwrap fld sts src
 
   let time ?(hour = 0) ?(minute = 0) ?(second = 0) = fun _ ->
     Time { base_time with hour; minute; second }

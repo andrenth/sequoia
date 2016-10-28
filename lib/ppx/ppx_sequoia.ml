@@ -186,7 +186,7 @@ and map_select st loc = function
       Pexp_apply (({ pexp_desc =
                      Pexp_ident { txt = Lident fn; loc } } as fld),
                   ([(_, { pexp_desc =
-                          Pexp_ident { txt = Ldot (Lident t, _) } })] as args)) } as e when fn = "field" || fn = "assured" ->
+                          Pexp_ident { txt = Ldot (Lident t, _) } })] as args)) } as e when fn = "field" || fn = "unwrap" ->
       let steps = build_steps (index loc t !(st.tables)) in
       { e with pexp_desc = Pexp_apply (fld, snoc (Nolabel, steps) args) }
 

@@ -440,7 +440,7 @@ module Make (D : Driver) = struct
     val field : ('t, 'a) Field.t -> ('b, 'c, 't, 'd) Select.steps -> 'b Select.source -> 'a t
     val foreign_key : ('t1, 't2) Field.foreign_key -> ('a, 'b, 't1, 'c) Select.steps -> 'a Select.source -> 'd t
     val subquery : 's Select.t -> 't Select.source -> 'c t
-    val assured : ('t, 'a option) Field.t -> ('b, 'c, 't, 'd) Select.steps -> 'b Select.source -> 'a t
+    val unwrap : ('t, 'a option) Field.t -> ('b, 'c, 't, 'd) Select.steps -> 'b Select.source -> 'a t
 
     val (=) : ('s Select.source -> 'a t) -> ('s Select.source -> 'a t) -> 's Select.source
            -> bool t
@@ -544,7 +544,7 @@ module Make (D : Driver) = struct
     let subquery sel = fun src -> Select sel
 
     (* XXX is there a better name for this? *)
-    let assured
+    let unwrap
       : type a. ('t, a option) Field.t -> ('b, 'c, 't, 'd) Select.steps
              -> 'b Select.source -> a t =
       fun fld steps src ->

@@ -32,7 +32,7 @@ let () =
                (string "short")
            ; if_ (is_null (field User.site))
                (string "no site")
-               (assured User.site)
+               (unwrap User.site)
            ; field User.id =? [int 1; int 2; int 3]
            ]
       |> where (field User.name =% "foo%" && is_not_null (field User.site))
