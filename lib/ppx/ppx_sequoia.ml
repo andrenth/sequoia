@@ -105,17 +105,20 @@ let rec map_query st loc = function
       st.tables := [t];
       e
 
-  (* {left,right,inner}_join belonging_to Table.fk *)
+  (* {left,right,inner}_join (belonging_to Table.fk) *)
   | { pexp_desc =
-      Pexp_apply (({ pexp_desc =
-                     Pexp_ident { txt = Lident join_fun } } as join),
-                  ([ (Nolabel,
-                       { pexp_desc =
-                         Pexp_ident { txt = Lident "belonging_to" } })
-                   ; (Nolabel,
-                       { pexp_desc =
-                         Pexp_ident { txt = Ldot (Lident tbl, fld); loc } })
-                  ] as args)) } as e
+      Pexp_apply
+        (({ pexp_desc = Pexp_ident { txt = Lident join_fun } } as join),
+         [(Nolabel,
+           ({ pexp_desc =
+             Pexp_apply
+               (({ pexp_desc =
+                   Pexp_ident { txt = Lident "belonging_to" } } as rel),
+                (([(Nolabel,
+                    { pexp_desc =
+                      Pexp_ident
+                        { txt = Ldot (Lident tbl, fld)
+                        ; loc } })]) as args)) } as join_args))]) } as e
         when join_fun = "left_join"
           || join_fun = "right_join"
           || join_fun = "inner_join" ->
@@ -123,19 +126,30 @@ let rec map_query st loc = function
       let ref_tbl, _ = find_reference loc st.references (tbl, fld) in
       add_table ref_tbl tbl st.tables;
       let steps = build_steps (index loc ref_tbl !(st.tables)) in
-      { e with pexp_desc = Pexp_apply (join, snoc (Nolabel, steps) args) }
+      { e with
+        pexp_desc =
+        Pexp_apply
+          (join,
+           [(Nolabel,
+             { join_args with
+               pexp_desc =
+               Pexp_apply
+                 (rel, snoc (Nolabel, steps) args) })]) }
 
-  (* {left,right,inner}_join having_one Table.fk *)
+  (* {left,right,inner}_join (having_one Table.fk) *)
   | { pexp_desc =
-      Pexp_apply (({ pexp_desc =
-                     Pexp_ident { txt = Lident join_fun } } as join),
-                  ([ (Nolabel,
-                       { pexp_desc =
-                         Pexp_ident { txt = Lident "having_one" } })
-                   ; (Nolabel,
-                       { pexp_desc =
-                         Pexp_ident { txt = Ldot (Lident tbl, fld); loc } })
-                  ] as args)) } as e
+      Pexp_apply
+        (({ pexp_desc = Pexp_ident { txt = Lident join_fun } } as join),
+         [(Nolabel,
+           ({ pexp_desc =
+             Pexp_apply
+               (({ pexp_desc =
+                   Pexp_ident { txt = Lident "having_one" } } as rel),
+                (([(Nolabel,
+                    { pexp_desc =
+                      Pexp_ident
+                        { txt = Ldot (Lident tbl, fld)
+                        ; loc } })]) as args)) } as join_args))]) } as e
         when join_fun = "left_join"
           || join_fun = "right_join"
           || join_fun = "inner_join" ->
@@ -143,7 +157,45 @@ let rec map_query st loc = function
       let ref_tbl, _ = find_reference loc st.references (tbl, fld) in
       add_table tbl ref_tbl st.tables;
       let steps = build_steps (index loc tbl !(st.tables)) in
-      { e with pexp_desc = Pexp_apply (join, snoc (Nolabel, steps) args) }
+      { e with
+        pexp_desc =
+        Pexp_apply
+          (join,
+           [(Nolabel,
+             { join_args with
+               pexp_desc =
+               Pexp_apply
+                 (rel, snoc (Nolabel, steps) args) })]) }
+
+  (* {left,right,inner}_join (self Table.k) *)
+  | { pexp_desc =
+      Pexp_apply
+        (({ pexp_desc = Pexp_ident { txt = Lident join_fun } } as join),
+         [(Nolabel,
+           ({ pexp_desc =
+             Pexp_apply
+               (({ pexp_desc = Pexp_ident { txt = Lident "self" } } as rel),
+                (([ (Nolabel,
+                     { pexp_desc =
+                       Pexp_ident
+                         { txt = Ldot (Lident tbl, fld) ; loc } })
+                  ; _
+                  ]) as args)) } as join_args))]) } as e
+        when join_fun = "left_join"
+          || join_fun = "right_join"
+          || join_fun = "inner_join" ->
+
+      add_table tbl tbl st.tables;
+      let steps = build_steps (index loc tbl !(st.tables)) in
+      { e with
+        pexp_desc =
+        Pexp_apply
+          (join,
+           [(Nolabel,
+             { join_args with
+               pexp_desc =
+               Pexp_apply
+                 (rel, snoc (Nolabel, steps) args) })]) }
 
   (* select/order_by Expr.[...] *)
   | { pexp_desc =

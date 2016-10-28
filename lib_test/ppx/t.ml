@@ -17,8 +17,8 @@ let print_params ps =
 let () =
   let%sql query, params = Mysql.(Select.(Expr.(Vector.(
     from Team.table
-      |> left_join belonging_to Team.owner
-      |> right_join having_one Project.leader
+      |> left_join (belonging_to Team.owner)
+      |> right_join (having_one Project.leader)
       |> select
            [ field User.id
            ; field User.name
@@ -48,9 +48,9 @@ let () = print_endline "==="
 let () =
   let%sql query, params = Mysql.(Select.(
     from TeamUser.table
-      |> left_join belonging_to TeamUser.team
-      |> right_join belonging_to TeamUser.user
-      |> inner_join having_one Project.leader
+      |> left_join (belonging_to TeamUser.team)
+      |> right_join (belonging_to TeamUser.user)
+      |> inner_join (having_one Project.leader)
       |> select Expr.(Vector.
            [ field Team.name
            ; field User.name
@@ -67,8 +67,8 @@ let () = print_endline "==="
 let () =
   let query, params = Mysql.(Select.(
     let src = from TeamUser.table in
-    let src = left_join belonging_to TeamUser.user There src in
-    let src = left_join belonging_to TeamUser.team (Skip There) src in
+    let src = left_join (belonging_to TeamUser.user There) src in
+    let src = left_join (belonging_to TeamUser.team (Skip There)) src in
     let sel =
       select Expr.(Vector.[
         field User.name There; field Team.name (Skip There)
@@ -86,8 +86,8 @@ let () = print_endline "==="
 let () =
   let%sql query, params = Mysql.(Select.(
     let src = from Team.table in
-    let src = inner_join belonging_to Team.owner There src in
-    let src = inner_join having_one Project.leader There src in
+    let src = inner_join (belonging_to Team.owner There) src in
+    let src = inner_join (having_one Project.leader There) src in
     let sel =
       select Expr.(Vector.[
         field Team.name (Skip (Skip There)); field Project.title There
@@ -103,8 +103,8 @@ let () = print_endline "==="
 let () =
   let query, params = Mysql.(Select.(
     let src = from User.table in
-    let src = right_join having_one Team.owner There src in
-    let src = right_join having_one Project.leader (Skip There) src in
+    let src = right_join (having_one Team.owner There) src in
+    let src = right_join (having_one Project.leader (Skip There)) src in
     let sel = select Expr.(Vector.
       [ field Team.id There
       ; field Team.name There
@@ -121,7 +121,17 @@ let () =
 
 let () = print_endline "==="
 
-module V = Sequoia.Vector
+let () =
+  let%sql query, params = Mysql.(Select.(Expr.(Vector.(
+    from User.table
+      |> left_join (self User.id User.id)
+      |> select [ field User.id ]
+      |> seal
+  )))) in
+  print_endline query;
+  print_params params
+
+let () = print_endline "==="
 
 let () =
   let query, params = Mysql.(Insert.(Vector.(Expr.(Vector.(

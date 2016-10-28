@@ -235,24 +235,32 @@ module Make (D : Driver) = struct
     val select : ('s, 'a, 'n Nat.s) Expr.Vector.t -> 's source -> 's t
 
     val from : 't Table.t -> ('t -> unit) source
-    val left_join  : ('a -> ('t1, 't2) Field.foreign_key)
-                  -> 'a
-                  -> ('s1, 't1, 't2, 's2) join_steps
+    val left_join  : ('t1, 't2) Field.foreign_key *
+                     ('s1, 't1, 't2, 's2) join_steps
                   -> 's1 source
                   -> 's2 source
-    val right_join : ('a -> ('t1, 't2) Field.foreign_key)
-                  -> 'a
-                  -> ('s1, 't1, 't2, 's2) join_steps
+    val right_join : ('t1, 't2) Field.foreign_key *
+                     ('s1, 't1, 't2, 's2) join_steps
                   -> 's1 source
                   -> 's2 source
-    val inner_join : ('a -> ('t1, 't2) Field.foreign_key)
-                  -> 'a
-                  -> ('s1, 't1, 't2, 's2) join_steps
+    val inner_join : ('t1, 't2) Field.foreign_key *
+                     ('s1, 't1, 't2, 's2) join_steps
                   -> 's1 source
                   -> 's2 source
 
-    val having_one : ('t1, 't2) Field.foreign_key -> ('t1, 't2) Field.foreign_key
-    val belonging_to : ('t1, 't2) Field.foreign_key -> ('t2, 't1) Field.foreign_key
+    val self : ('t, int) Field.t
+            -> ('t, int) Field.t
+            -> ('s1, 't1, 't, 's2) join_steps
+            -> ('t, 't) Field.foreign_key * ('s1, 't1, 't, 's2) join_steps
+
+    val having_one : ('t1, 't2) Field.foreign_key
+                  -> ('s1, 't1, 't2, 's2) join_steps
+                  -> ('t1, 't2) Field.foreign_key *
+                     ('s1, 't1, 't2, 's2) join_steps
+    val belonging_to : ('t1, 't2) Field.foreign_key
+                    -> ('s1, 't2, 't1, 's2) join_steps
+                    -> ('t2, 't1) Field.foreign_key *
+                       ('s1, 't2, 't1, 's2) join_steps
 
     val where : ('a source -> 'b Expr.t) -> 'a t -> 'a t
     val group_by : ('s source -> 'a Expr.t) -> 's t -> 's t
@@ -431,15 +439,16 @@ module Make (D : Driver) = struct
     let from t =
       From t
 
-    let join kind f rel steps src =
-      Join (kind, f rel, src, steps)
+    let join kind rel steps src =
+      Join (kind, rel, src, steps)
 
-    let left_join  f rel steps src = join Left  f rel steps src
-    let right_join f rel steps src = join Right f rel steps src
-    let inner_join f rel steps src = join Inner f rel steps src
+    let left_join  (rel, steps) src = join Left  rel steps src
+    let right_join (rel, steps) src = join Right rel steps src
+    let inner_join (rel, steps) src = join Inner rel steps src
 
-    let having_one rel = rel
-    let belonging_to (fk, pk) = (pk, fk)
+    let self fld1 fld2 steps = ((fld1, fld2), steps)
+    let having_one rel steps = (rel, steps)
+    let belonging_to (fk, pk) steps = ((pk, fk), steps)
 
     let where expr (S stmt) =
       S { stmt with where = Some (expr stmt.source) }
