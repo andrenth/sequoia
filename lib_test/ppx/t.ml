@@ -15,7 +15,7 @@ let print_params ps =
   print ps
 
 let () =
-  let%sql query, params = Mysql.(Select.(Expr.(Vector.(VectorMk.(
+  let%sql query, params = Mysql.(Select.(Expr.(Vector.(
     from Team.table
       |> left_join belonging_to Team.owner
       |> right_join having_one Project.leader
@@ -39,7 +39,7 @@ let () =
       |> order_by [field User.name]
       |> limit 10
       |> seal
-  ))))) in
+  )))) in
   print_endline query;
   print_params params
 
@@ -51,11 +51,11 @@ let () =
       |> left_join belonging_to TeamUser.team
       |> right_join belonging_to TeamUser.user
       |> inner_join having_one Project.leader
-      |> select Expr.(VectorMk.
+      |> select Expr.(Vector.
            [ field Team.name
            ; field User.name
            ])
-      |> order_by Expr.(VectorMk.[field User.name; field Team.name])
+      |> order_by Expr.(Vector.[field User.name; field Team.name])
       |> limit 10 ~offset:5
       |> seal
   )) in
@@ -70,12 +70,12 @@ let () =
     let src = left_join belonging_to TeamUser.user There src in
     let src = left_join belonging_to TeamUser.team (Skip There) src in
     let sel =
-      select Expr.(VectorMk.[
+      select Expr.(Vector.[
         field User.name There; field Team.name (Skip There)
       ]) src in
     let stmt =
-      where Expr.(Vector.(field Team.name (Skip There) =% "foo%")) sel in
-    let stmt = order_by Expr.(VectorMk.[field Team.name (Skip There)]) stmt in
+      where Expr.(field Team.name (Skip There) =% "foo%") sel in
+    let stmt = order_by Expr.(Vector.[field Team.name (Skip There)]) stmt in
     seal stmt
   )) in
   print_endline query;
@@ -89,10 +89,10 @@ let () =
     let src = inner_join belonging_to Team.owner There src in
     let src = inner_join having_one Project.leader There src in
     let sel =
-      select Expr.(VectorMk.[
+      select Expr.(Vector.[
         field Team.name (Skip (Skip There)); field Project.title There
     ]) src in
-    let stmt = where Expr.(Vector.(field Project.title There =% "P%")) sel in
+    let stmt = where Expr.(field Project.title There =% "P%") sel in
     seal stmt
   )) in
   print_endline query;
@@ -105,7 +105,7 @@ let () =
     let src = from User.table in
     let src = right_join having_one Team.owner There src in
     let src = right_join having_one Project.leader (Skip There) src in
-    let sel = select Expr.(VectorMk.
+    let sel = select Expr.(Vector.
       [ field Team.id There
       ; field Team.name There
       ; field User.id (Skip (Skip There))
@@ -113,7 +113,7 @@ let () =
       ])
       src in
     let stmt =
-      where Expr.(Vector.(field User.id (Skip (Skip There)) > int 42)) sel in
+      where Expr.(field User.id (Skip (Skip There)) > int 42) sel in
     seal stmt
   )) in
   print_endline query;

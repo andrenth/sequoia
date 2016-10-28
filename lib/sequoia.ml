@@ -232,7 +232,7 @@ module Make (D : Driver) = struct
       | Skip : ('s1, 't1, 't2, 's2) steps -> ('a -> 's1, 't1, 't2, 'a -> 's2) steps
 
     val seal : ?handover:Expr.handover -> 's t -> string * Param.t list
-    val select : ('s, 'a, 'n Nat.s) Expr.VectorMk.t -> 's source -> 's t
+    val select : ('s, 'a, 'n Nat.s) Expr.Vector.t -> 's source -> 's t
 
     val from : 't Table.t -> ('t -> unit) source
     val left_join  : ('a -> ('t1, 't2) Field.foreign_key)
@@ -256,7 +256,7 @@ module Make (D : Driver) = struct
 
     val where : ('a source -> 'b Expr.t) -> 'a t -> 'a t
     val group_by : ('s source -> 'a Expr.t) -> 's t -> 's t
-    val order_by : ('s, 'a, 'n Nat.s) Expr.VectorMk.t -> 's t -> 's t
+    val order_by : ('s, 'a, 'n Nat.s) Expr.Vector.t -> 's t -> 's t
     val limit : ?offset:int -> int -> 'a t -> 'a t
 
   end = struct
@@ -280,10 +280,10 @@ module Make (D : Driver) = struct
     type _ t =
       | S :
           { source   : 's source
-          ; select   : ('a, _, 'n Nat.s) Expr.Vector.t
+          ; select   : ('a, _, 'n Nat.s) Expr.EVec.t
           ; where    : 'b Expr.t option
           ; group_by : 'c Expr.t option
-          ; order_by : ('d, _, 'm Nat.s) Expr.Vector.t option
+          ; order_by : ('d, _, 'm Nat.s) Expr.EVec.t option
           ; limit    : (int * int) option
           } -> 's t
 
@@ -293,8 +293,8 @@ module Make (D : Driver) = struct
       | Inner -> "INNER"
 
     let join_exprs ~handover st =
-      Expr.Vector.fold_left
-        { Expr.Vector.f = fun (st, i) e ->
+      Expr.EVec.fold_left
+        { Expr.EVec.f = fun (st, i) e ->
           let st' = Expr.build ~handover st e in
           if i = 0 then
             (st', 1)
@@ -313,7 +313,7 @@ module Make (D : Driver) = struct
     let rec build_source
       : type s. handover:Expr.handover
              -> build_step
-             -> ('a, _, 'n) Expr.Vector.t -> s source
+             -> ('a, _, 'n) Expr.EVec.t -> s source
              -> build_step =
       fun ~handover st sel -> function
         | From t ->
@@ -418,7 +418,7 @@ module Make (D : Driver) = struct
 
     let to_string stmt = fst (seal stmt)
 
-    let select : type s a. (s, a, 'n Nat.s) Expr.VectorMk.t -> s source -> s Select.t = fun bl src ->
+    let select : type s a. (s, a, 'n Nat.s) Expr.Vector.t -> s source -> s Select.t = fun bl src ->
       S
         { source = src
         ; select = Expr.vectormk_to_vector src bl
@@ -448,7 +448,7 @@ module Make (D : Driver) = struct
       S { stmt with group_by = Some (expr stmt.source) }
 
     let order_by
-      : type a s n. (s, a, n Nat.s) Expr.VectorMk.t
+      : type a s n. (s, a, n Nat.s) Expr.Vector.t
              -> s Select.t
              -> s Select.t =
       fun bl (S stmt) ->
@@ -558,16 +558,16 @@ module Make (D : Driver) = struct
 
     type ('a, 'b) expr = 'b t
 
-    module Vector :
+    module EVec :
       VECTOR with type ('a, 'b) elem := ('a, 'b) expr
 
     type ('s, 'a) mk = 's Select.source -> 'a t
 
-    module VectorMk :
+    module Vector :
       VECTOR with type ('s, 'a) elem := ('s, 'a) mk
 
-    val vectormk_to_vector : 's Select.source -> ('s, 'a, 'n) VectorMk.t
-                          -> ('s, 'a, 'n) Vector.t
+    val vectormk_to_vector : 's Select.source -> ('s, 'a, 'n) Vector.t
+                          -> ('s, 'a, 'n) EVec.t
 
   end = struct
     type 'a t = ..
@@ -776,26 +776,26 @@ module Make (D : Driver) = struct
     type ('s, 'a) mk = 's Select.source -> 'a t
     type ('a, 'b) expr = 'b t
 
-    module VectorMk = Vector.Make(struct
-      type ('s, 'a) elem = ('s, 'a) mk
+    module EVec = Vector.Make(struct
+      type ('a, 'b) elem = 'b t
     end)
 
     module Vector = Vector.Make(struct
-      type ('a, 'b) elem = 'b t
+      type ('s, 'a) elem = ('s, 'a) mk
     end)
 
     let rec vectormk_to_vector
       : type a s n. s Select.source
-                 -> (s, a, n) VectorMk.t
-                 -> (s, a, n) Vector.t =
+                 -> (s, a, n) Vector.t
+                 -> (s, a, n) EVec.t =
       fun src vec ->
-        let open VectorMk in
+        let open Vector in
         match vec with
         | [] ->
-            let open Vector in
+            let open EVec in
             []
         | f::fs ->
-            let open Vector in
+            let open EVec in
             (f src) :: vectormk_to_vector src fs
   end
 
