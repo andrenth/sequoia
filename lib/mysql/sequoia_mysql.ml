@@ -4,7 +4,8 @@ module D = struct let placeholder _ = "?" end
 module M = Sequoia.Make (D)
 
 include (M : module type of M
-  with module Expr   := M.Expr
+  with module Lit    := M.Lit
+   and module Expr   := M.Expr
    and module Select := M.Select
    and module Field  := M.Field
    and module Param  := M.Param)
@@ -81,8 +82,8 @@ module Field = struct
   let datetime table name = Datetime (name, table)
 end
 
-module Expr = struct
-  include M.Expr
+module Lit = struct
+  include M.Lit
 
   type time_unit
     = Seconds
@@ -105,12 +106,16 @@ module Expr = struct
     | Years -> "YEAR"
 
   type 'a t +=
-    (* Data types *)
     | Time : [`Time] time -> [`Time] time t
     | Timestamp : [`Timestamp] time -> [`Timestamp] time t
     | Date : [`Date] time -> [`Date] time t
     | Datetime : [`Datetime] time -> [`Datetime] time t
-    (* Functions *)
+end
+
+module Expr = struct
+  include M.Expr
+
+  type 'a t +=
     | Abs : int t -> int t
     | Acos : float t -> float t
     | Ascii : string t -> string t
@@ -146,9 +151,9 @@ module Expr = struct
     | Current_user : string t
     | Database : string t
     | DateFn : [< `Date | `Datetime] time t -> [`Date] time t
-    | Date_add : 'k time t * int * time_unit -> 'k t
+    | Date_add : 'k time t * int * Lit.time_unit -> 'k t
     | Date_format : 'k time t * string -> string t
-    | Date_sub : 'k time t * int * time_unit -> 'k time t
+    | Date_sub : 'k time t * int * Lit.time_unit -> 'k time t
     | Datediff : 'k time t * 'k time t -> int t
     | Dayname : 'k t -> string t
     | Dayofmonth : 'k t -> int t
@@ -213,266 +218,272 @@ module Expr = struct
     | Weekofyear : int t
     | Upper : string t -> string t
     | Year : int t
-
-  let rec builder
-    : type a. build_step -> a t -> build_step =
-    fun st e ->
-      let handover = { handover = builder } in
-      let fn ?(st = st) = build_function ~handover st in
-      match e with
-      (* Data types *)
-      | Time t -> build_param st (Param.Time t)
-      | Timestamp t -> build_param st (Param.Timestamp t)
-      | Date d -> build_param st (Param.Date d)
-      | Datetime d -> build_param st (Param.Datetime d)
-      (* Functions *)
-      | Abs e -> fn "ABS(" [e] ")"
-      | Acos e -> fn "ACOS(" [e] ")"
-      | Ascii e -> fn "ASCII(" [e] ")"
-      | Asin e -> fn "ASIN(" [e] ")"
-      | Atan e -> fn "ATAN(" [e] ")"
-      | Atan2 (e1, e2) -> fn "ATAN2(" [e1; e2] ")"
-      | Avg e -> fn "AVG(" [e] ")"
-      | Between (e1, e2) -> fn "BETWEEN(" [e1; e2] ")"
-      | Bin e -> fn "BIN(" [e] ")"
-      | Bit_and e -> fn "BIT_AND" [e] ")"
-      | Bit_count e -> fn "BIT_COUNT" [e] ")"
-      | Bit_length e -> fn "BIT_LENGTH" [e] ")"
-      | Bit_or e -> fn "BIT_OR" [e] ")"
-      | Bit_xor e -> fn "BIT_XOR" [e] ")"
-      | Ceil e -> fn "CEIL(" [e] ")"
-      | Char l -> fn "CHAR(" l ")"
-      | Char_length e -> fn "CHAR_LENGTH" [e] ")"
-      | Charset e -> fn "CHARSET(" [e] ")"
-      | Coalesce l -> fn "COALESCE(" l ")"
-      | Collation e -> fn "COLLATION(" [e] ")"
-      | Compress e -> fn "COMPRESS(" [e] ")"
-      | Concat l -> fn "CONCAT(" l ")"
-      | Concat_ws (s, l) -> fn "CONCAT_WS" l ")"
-      | Connection_id -> fn "CONNECTION_ID" [] ")"
-      | Conv (e1, i, j) -> fn "CONV(" [e1] (sprintf ", %d, %d)" i j)
-      | Cos e -> fn "COS(" [e] ")"
-      | Cot e -> fn "COT(" [e] ")"
-      | Count (e, true) -> fn "COUNT(DISTINCT " [e] ")"
-      | Count (e, false) -> fn "COUNT(" [e] ")"
-      | Crc32 e -> fn "CRC32" [e] ")"
-      | Current_date -> fn "CURRENT_DATE" [] ")"
-      | Current_time -> fn "CURRENT_TIME" [] ")"
-      | Current_timestamp -> fn "CURRENT_TIMESTAMP" [] ")"
-      | Current_user -> fn "CURRENT_USER" [] ")"
-      | Database -> fn "DATABASE(" [] ")"
-      | DateFn e -> fn "DATE(" [e] ")"
-      | Date_add (e, i, u) ->
-          let s = string_of_time_unit u in
-          fn "DATE_ADD(" [e] (sprintf ", INTERVAL %d %s)" i s)
-      | Date_format (e, fmt) ->
-          fn "DATE_FORMAT(" [e] (sprintf ", %s)" fmt)
-      | Date_sub (e, i, u) ->
-          let s = string_of_time_unit u in
-          fn "DATE_SUB(" [e] (sprintf ", INTERVAL %d %s)" i s)
-      | Datediff (e1, e2) -> fn "DATEDIFF(" [e1; e2] ")"
-      | Dayname e -> fn "DAYNAME(" [e] ")"
-      | Dayofmonth e -> fn "DAYOFMONTH(" [e] ")"
-      | Dayofweek e -> fn "DAYOFWEEK(" [e] ")"
-      | Dayofyear e -> fn "DAYOFYEAR(" [e] ")"
-      | Degrees e -> fn "DEGREES(" [e] ")"
-      | Expr e -> fn "EXPR(" [e] ")"
-      | Floor e -> fn "FLOOR(" [e] ")"
-      | If (b, t, f) ->
-          let st1 = fn "IF(" [b] "" in
-          let st2 = fn ~st:st1 (st1.repr ^ ", ") [t; f] ")" in
-          Sequoia.{ st2 with params = st1.params @ st2.params }
-      | From_days e -> fn "FROM_DAYS(" [e] ")"
-      | From_unixtime e -> fn "FROM_UNIXTIME(" [e] ")"
-      | Ifnull (e1, e2) ->
-          let st1 = fn "IFNULL(" [e1] "" in
-          let st2 = fn ~st:st1 (st1.repr ^ ", ") [e2] ")" in
-          Sequoia.{ st2 with params = st1.params @ st2.params }
-      | Last_day e -> fn "LAST_DAY(" [e] ")"
-      | Length e -> fn "LENGTH(" [e] ")"
-      | Localtime -> fn "LOCALTIME(" [] ")"
-      | Log e -> fn "LOG(" [e] ")"
-      | Log10 e -> fn "LOG10" [e] ")"
-      | Log2 e -> fn "LOG2" [e] ")"
-      | Lower e -> fn "LOWER(" [e] ")"
-      | Lpad e -> fn "LPAD(" [e] ")"
-      | Ltrim e -> fn "LTRIM(" [e] ")"
-      | Max e -> fn "MAX(" [e] ")"
-      | Md5 e -> fn "MD5" [e] ")"
-      | Minute e -> fn "MINUTE(" [e] ")"
-      | Month e -> fn "MONTH(" [e] ")"
-      | Monthname e -> fn "MONTHNAME(" [e] ")"
-      | Now -> fn "NOW(" [] ")"
-      | Nullif (e1, e2) -> fn "NULLIF(" [e1; e2] ")"
-      | Ord e -> fn "ORD(" [e] ")"
-      | Pow e -> fn "POW(" [e] ")"
-      | Radians e -> fn "RADIANS(" [e] ")"
-      | Rand (Some seed) -> fn "RAND(" [seed] ")"
-      | Rand None -> fn "RAND(" [] ")"
-      | Repeat (e, n) -> fn "REPEAT(" [e] (sprintf ", %d)" n)
-      | Replace (e, s1, s2) -> fn "REPLACE(" [e] (sprintf ", %s, %s)" s1 s2)
-      | Reverse e -> fn "REVERSE(" [e] ")"
-      | Rlike (e, re) -> fn "RLIKE(" [e] (sprintf ", %s)" re)
-      | Round e -> fn "ROUND(" [e] ")"
-      | Rpad e -> fn "RPAD(" [e] ")"
-      | Rtrim e -> fn "RTRIM(" [e] ")"
-      | Sec_to_time e -> fn "SEC_TO_TIME" [e] ")"
-      | Second e -> fn "SECOND(" [e] ")"
-      | Sha1 e -> fn "SHA1" [e] ")"
-      | Sha2 e -> fn "SHA2" [e] ")"
-      | Sign e -> fn "SIGN(" [e] ")"
-      | Sin e -> fn "SIN(" [e] ")"
-      | Sqrt e -> fn "SQRT(" [e] ")"
-      | Stddev e -> fn "STDDEV(" [e] ")"
-      | Substring (e, pos, Some len) ->
-          fn "SUBSTRING(" [e] (sprintf " FROM %d FOR %d)" pos len)
-      | Substring (e, pos, None) ->
-          fn "SUBSTRING(" [e] (sprintf " FROM %d)" pos)
-      | Substring_index (e, delim, n) ->
-          fn "SUBSTRING_INDEX(" [e] (sprintf ", %s, %d)" delim n)
-      | Sum (e, true) -> fn "SUM(DISTINCT " [e] ")"
-      | Sum (e, false) -> fn "SUM(" [e] ")"
-      | Tan e -> fn "TAN(" [e] ")"
-      | TimeFn e -> fn "TIME(" [e] ")"
-      | Trim e -> fn "TRIM(" [e] ")"
-      | Uncompress e -> fn "UNCOMPRESS(" [e] ")"
-      | e -> build ~handover st e
-
-  let unwrap
-    : type a. ('t, a option) Field.t -> ('b, 'c, 't, 'd) M.Select.steps
-           -> 'b M.Select.source -> a t =
-    fun fld sts src ->
-      match fld with
-      | Field.Null.Time (n, t) -> Field (Field.Time (n, t), src, sts)
-      | Field.Null.Timestamp (n, t) -> Field (Field.Timestamp (n, t), src, sts)
-      | Field.Null.Date (n, t) -> Field (Field.Date (n, t), src, sts)
-      | Field.Null.Datetime (n, t) -> Field (Field.Datetime (n, t), src, sts)
-      | _ -> unwrap fld sts src
-
-  let time ?(hour = 0) ?(minute = 0) ?(second = 0) = fun _ ->
-    Time { base_time with hour; minute; second }
-  let timestamp t = fun _ ->
-    let tm = Unix.localtime t in
-    Timestamp
-      { year = tm.Unix.tm_year
-      ; month = tm.Unix.tm_mon
-      ; day = tm.Unix.tm_mday
-      ; hour = tm.Unix.tm_hour
-      ; minute = tm.Unix.tm_min
-      ; second = tm.Unix.tm_sec
-      }
-  let date ?(year = 0) ?(month = 0) ?(day = 0) = fun _ ->
-    Date { base_time with year; month; day }
-  let datetime ?(year = 0) ?(month = 0) ?(day = 0)
-               ?(hour = 0) ?(minute = 0) ?(second = 0) = fun _ ->
-    Datetime { base_time with year; month; day; minute; second }
-
-  let acos f = fun src -> Acos (f src)
-  let ascii f = fun src -> Ascii (f src)
-  let asin f = fun src -> Asin (f src)
-  let atan f = fun src -> Atan (f src)
-  let atan2 f g = fun src -> Atan2 (f src, g src)
-  let avg f = fun src -> Avg (f src)
-  let between f g = fun src -> Between (f src, g src)
-  let bin f = fun src -> Bin (f src)
-  let bit_and f = fun src -> Bit_and (f src)
-  let bit_count f = fun src -> Bit_count (f src)
-  let bit_length f = fun src -> Bit_length (f src)
-  let bit_or f = fun src -> Bit_or (f src)
-  let bit_xor f = fun src -> Bit_xor (f src)
-  let ceil f = fun src -> Ceil (f src)
-  let char f = fun src -> Char (f src)
-  let char_length f = fun src -> Char_length (f src)
-  let charset f = fun src -> Charset (f src)
-  let coalesce f = fun src -> Coalesce (f src)
-  let collation f = fun src -> Collation (f src)
-  let compress f = fun src -> Compress (f src)
-  let concat f = fun src -> Concat (f src)
-  let concat_ws sep l = fun src -> Concat_ws (sep, List.map (fun f -> f src) l)
-  let connection_id () = fun src -> Connection_id
-  let conv f i j = fun src -> Conv (f src, i, j)
-  let cos f = fun src -> Cos (f src)
-  let cot f = fun src -> Cot (f src)
-  let count ?(distinct = false) f = fun src -> Count (f src, distinct)
-  let crc32 f = fun src -> Crc32 (f src)
-  let current_date () = fun src -> Current_date
-  let current_time () = fun src -> Current_time
-  let current_timestamp () = fun src -> Current_timestamp
-  let current_user () = fun src -> Current_user
-  let database () = fun src -> Database
-  let date_of : ('s M.Select.source -> [< `Date | `Datetime] time t) -> 's M.Select.source -> [`Date] time t = fun f src ->
-    DateFn (f src)
-  let date_add f i u = fun src -> Date_add (f src, i, u)
-  let date_format f fmt = fun src -> Date_format (f src, fmt)
-  let date_sub f i u = fun src -> Date_sub (f src, i, u)
-  let datediff f g = fun src -> Datediff (f src, g src)
-  let dayname f = fun src -> Dayname (f src)
-  let dayofmonth f = fun src -> Dayofmonth (f src)
-  let dayofweek f = fun src -> Dayofweek (f src)
-  let dayofyear f = fun src -> Dayofyear (f src)
-  let degrees f = fun src -> Degrees (f src)
-  let expr f = fun src -> Expr (f src)
-  let floor f = fun src -> Floor (f src)
-  let from_days f = fun src -> From_days (f src)
-  let from_unixtime f = fun src -> From_unixtime (f src)
-  let if_ f g h = fun src -> If (f src, g src, h src)
-  let ifnull f g = fun src -> Ifnull (f src, g src)
-  let last_day f = fun src -> Last_day (f src)
-  let length f = fun src -> Length (f src)
-  let localtime () = fun src -> Localtime
-  let log f = fun src -> Log (f src)
-  let log10 f = fun src -> Log10 (f src)
-  let log2 f = fun src -> Log2 (f src)
-  let lower f = fun src -> Lower (f src)
-  let lpad f = fun src -> Lpad (f src)
-  let ltrim f = fun src -> Ltrim (f src)
-  let max f = fun src -> Max (f src)
-  let md5 f = fun src -> Md5 (f src)
-  let minute f = fun src -> Minute (f src)
-  let month f = fun src -> Month (f src)
-  let monthname f = fun src -> Monthname (f src)
-  let now () = fun src -> Now
-  let nullif f g = fun src -> Nullif (f src, g src)
-  let ord f = fun src -> Ord (f src)
-  let pow f = fun src -> Pow (f src)
-  let radians f = fun src -> Radians (f src)
-  let rand f = fun src -> Rand (f src)
-  let repeat f n = fun src -> Repeat (f src, n)
-  let replace f s1 s2 = fun src -> Replace (f src, s1, s2)
-  let reverse f = fun src -> Reverse (f src)
-  let (=~) f re = fun src -> Rlike (f src, re)
-  let round f = fun src -> Round (f src)
-  let rpad f = fun src -> Rpad (f src)
-  let rtrim f = fun src -> Rtrim (f src)
-  let sec_to_time f = fun src -> Sec_to_time (f src)
-  let second f = fun src -> Second (f src)
-  let sha1 f = fun src -> Sha1 (f src)
-  let sha2 f = fun src -> Sha2 (f src)
-  let sign f = fun src -> Sign (f src)
-  let sin f = fun src -> Sin (f src)
-  let sqrt f = fun src -> Sqrt (f src)
-  let stddev f = fun src -> Stddev (f src)
-  let substring f pos len = fun src -> Substring (f src, pos, len)
-  let substring_index f d n = fun src -> Substring_index (f src, d, n)
-  let sum f d = fun src -> Sum (f src, d)
-  let tan f = fun src -> Tan (f src)
-  let time_of : ('s M.Select.source -> [< `Time | `Datetime] time t) -> 's M.Select.source -> [`Time] time t = fun f src ->
-    TimeFn (f src)
-  let trim f = fun src -> Trim (f src)
-  let uncompress f = fun src -> Uncompress (f src)
-  let utc_date () = fun src -> Utc_date
-  let utc_time () = fun src -> Utc_time
-  let utc_timestamp () = fun src -> Utc_timestamp
-  let uuid () = fun src -> Uuid
-  let uuid_short () = fun src -> Uuid_short
-  let week () = fun src -> Week
-  let weekday () = fun src -> Weekday
-  let weekofyear () = fun src -> Weekofyear
-  let upper f = fun src -> Upper (f src)
-  let year () = fun src -> Year
 end
 
 module Select = struct
-  include M.Select
+  include (M.Select : module type of M.Select
+    with module Expr := M.Select.Expr)
+
+  module Expr = struct
+    include M.Select.Expr
+
+    let rec builder
+      : type a. build_step -> a t -> build_step =
+      fun st e ->
+        let handover = { handover = builder } in
+        let fn ?(st = st) = build_function ~handover st in
+        let open Expr in
+        match e with
+        (* Data types *)
+        | Lit (Lit.Time t) -> build_param st (Param.Time t)
+        | Lit (Lit.Timestamp t) -> build_param st (Param.Timestamp t)
+        | Lit (Lit.Date d) -> build_param st (Param.Date d)
+        | Lit (Lit.Datetime d) -> build_param st (Param.Datetime d)
+        (* Functions *)
+        | Abs e -> fn "ABS(" [e] ")"
+        | Acos e -> fn "ACOS(" [e] ")"
+        | Ascii e -> fn "ASCII(" [e] ")"
+        | Asin e -> fn "ASIN(" [e] ")"
+        | Atan e -> fn "ATAN(" [e] ")"
+        | Atan2 (e1, e2) -> fn "ATAN2(" [e1; e2] ")"
+        | Avg e -> fn "AVG(" [e] ")"
+        | Between (e1, e2) -> fn "BETWEEN(" [e1; e2] ")"
+        | Bin e -> fn "BIN(" [e] ")"
+        | Bit_and e -> fn "BIT_AND" [e] ")"
+        | Bit_count e -> fn "BIT_COUNT" [e] ")"
+        | Bit_length e -> fn "BIT_LENGTH" [e] ")"
+        | Bit_or e -> fn "BIT_OR" [e] ")"
+        | Bit_xor e -> fn "BIT_XOR" [e] ")"
+        | Ceil e -> fn "CEIL(" [e] ")"
+        | Char l -> fn "CHAR(" l ")"
+        | Char_length e -> fn "CHAR_LENGTH" [e] ")"
+        | Charset e -> fn "CHARSET(" [e] ")"
+        | Coalesce l -> fn "COALESCE(" l ")"
+        | Collation e -> fn "COLLATION(" [e] ")"
+        | Compress e -> fn "COMPRESS(" [e] ")"
+        | Concat l -> fn "CONCAT(" l ")"
+        | Concat_ws (s, l) -> fn "CONCAT_WS" l ")"
+        | Connection_id -> fn "CONNECTION_ID" [] ")"
+        | Conv (e1, i, j) -> fn "CONV(" [e1] (sprintf ", %d, %d)" i j)
+        | Cos e -> fn "COS(" [e] ")"
+        | Cot e -> fn "COT(" [e] ")"
+        | Count (e, true) -> fn "COUNT(DISTINCT " [e] ")"
+        | Count (e, false) -> fn "COUNT(" [e] ")"
+        | Crc32 e -> fn "CRC32" [e] ")"
+        | Current_date -> fn "CURRENT_DATE" [] ")"
+        | Current_time -> fn "CURRENT_TIME" [] ")"
+        | Current_timestamp -> fn "CURRENT_TIMESTAMP" [] ")"
+        | Current_user -> fn "CURRENT_USER" [] ")"
+        | Database -> fn "DATABASE(" [] ")"
+        | DateFn e -> fn "DATE(" [e] ")"
+        | Date_add (e, i, u) ->
+            let s = Lit.string_of_time_unit u in
+            fn "DATE_ADD(" [e] (sprintf ", INTERVAL %d %s)" i s)
+        | Date_format (e, fmt) ->
+            fn "DATE_FORMAT(" [e] (sprintf ", %s)" fmt)
+        | Date_sub (e, i, u) ->
+            let s = Lit.string_of_time_unit u in
+            fn "DATE_SUB(" [e] (sprintf ", INTERVAL %d %s)" i s)
+        | Datediff (e1, e2) -> fn "DATEDIFF(" [e1; e2] ")"
+        | Dayname e -> fn "DAYNAME(" [e] ")"
+        | Dayofmonth e -> fn "DAYOFMONTH(" [e] ")"
+        | Dayofweek e -> fn "DAYOFWEEK(" [e] ")"
+        | Dayofyear e -> fn "DAYOFYEAR(" [e] ")"
+        | Degrees e -> fn "DEGREES(" [e] ")"
+        | Expr e -> fn "EXPR(" [e] ")"
+        | Floor e -> fn "FLOOR(" [e] ")"
+        | If (b, t, f) ->
+            let st1 = fn "IF(" [b] "" in
+            let st2 = fn ~st:st1 (st1.repr ^ ", ") [t; f] ")" in
+            Sequoia.{ st2 with params = st1.params @ st2.params }
+        | From_days e -> fn "FROM_DAYS(" [e] ")"
+        | From_unixtime e -> fn "FROM_UNIXTIME(" [e] ")"
+        | Ifnull (e1, e2) ->
+            let st1 = fn "IFNULL(" [e1] "" in
+            let st2 = fn ~st:st1 (st1.repr ^ ", ") [e2] ")" in
+            Sequoia.{ st2 with params = st1.params @ st2.params }
+        | Last_day e -> fn "LAST_DAY(" [e] ")"
+        | Length e -> fn "LENGTH(" [e] ")"
+        | Localtime -> fn "LOCALTIME(" [] ")"
+        | Log e -> fn "LOG(" [e] ")"
+        | Log10 e -> fn "LOG10" [e] ")"
+        | Log2 e -> fn "LOG2" [e] ")"
+        | Lower e -> fn "LOWER(" [e] ")"
+        | Lpad e -> fn "LPAD(" [e] ")"
+        | Ltrim e -> fn "LTRIM(" [e] ")"
+        | Max e -> fn "MAX(" [e] ")"
+        | Md5 e -> fn "MD5" [e] ")"
+        | Minute e -> fn "MINUTE(" [e] ")"
+        | Month e -> fn "MONTH(" [e] ")"
+        | Monthname e -> fn "MONTHNAME(" [e] ")"
+        | Now -> fn "NOW(" [] ")"
+        | Nullif (e1, e2) -> fn "NULLIF(" [e1; e2] ")"
+        | Ord e -> fn "ORD(" [e] ")"
+        | Pow e -> fn "POW(" [e] ")"
+        | Radians e -> fn "RADIANS(" [e] ")"
+        | Rand (Some seed) -> fn "RAND(" [seed] ")"
+        | Rand None -> fn "RAND(" [] ")"
+        | Repeat (e, n) -> fn "REPEAT(" [e] (sprintf ", %d)" n)
+        | Replace (e, s1, s2) -> fn "REPLACE(" [e] (sprintf ", %s, %s)" s1 s2)
+        | Reverse e -> fn "REVERSE(" [e] ")"
+        | Rlike (e, re) -> fn "RLIKE(" [e] (sprintf ", %s)" re)
+        | Round e -> fn "ROUND(" [e] ")"
+        | Rpad e -> fn "RPAD(" [e] ")"
+        | Rtrim e -> fn "RTRIM(" [e] ")"
+        | Sec_to_time e -> fn "SEC_TO_TIME" [e] ")"
+        | Second e -> fn "SECOND(" [e] ")"
+        | Sha1 e -> fn "SHA1" [e] ")"
+        | Sha2 e -> fn "SHA2" [e] ")"
+        | Sign e -> fn "SIGN(" [e] ")"
+        | Sin e -> fn "SIN(" [e] ")"
+        | Sqrt e -> fn "SQRT(" [e] ")"
+        | Stddev e -> fn "STDDEV(" [e] ")"
+        | Substring (e, pos, Some len) ->
+            fn "SUBSTRING(" [e] (sprintf " FROM %d FOR %d)" pos len)
+        | Substring (e, pos, None) ->
+            fn "SUBSTRING(" [e] (sprintf " FROM %d)" pos)
+        | Substring_index (e, delim, n) ->
+            fn "SUBSTRING_INDEX(" [e] (sprintf ", %s, %d)" delim n)
+        | Sum (e, true) -> fn "SUM(DISTINCT " [e] ")"
+        | Sum (e, false) -> fn "SUM(" [e] ")"
+        | Tan e -> fn "TAN(" [e] ")"
+        | TimeFn e -> fn "TIME(" [e] ")"
+        | Trim e -> fn "TRIM(" [e] ")"
+        | Uncompress e -> fn "UNCOMPRESS(" [e] ")"
+        | e -> build ~handover st e
+
+    let unwrap
+      : type a. ('t, a option) Field.t -> ('b, 'c, 't, 'd) M.Select.steps
+             -> 'b M.Select.source -> a t =
+      fun fld sts src ->
+        match fld with
+        | Field.Null.Time (n, t) -> Field (Field.Time (n, t), src, sts)
+        | Field.Null.Timestamp (n, t) -> Field (Field.Timestamp (n, t), src, sts)
+        | Field.Null.Date (n, t) -> Field (Field.Date (n, t), src, sts)
+        | Field.Null.Datetime (n, t) -> Field (Field.Datetime (n, t), src, sts)
+        | _ -> unwrap fld sts src
+
+    let time ?(hour = 0) ?(minute = 0) ?(second = 0) = fun _ ->
+      Lit (Lit.Time { base_time with hour; minute; second })
+    let timestamp t = fun _ ->
+      let tm = Unix.localtime t in
+      let ts = Lit.Timestamp
+        { year = tm.Unix.tm_year
+        ; month = tm.Unix.tm_mon
+        ; day = tm.Unix.tm_mday
+        ; hour = tm.Unix.tm_hour
+        ; minute = tm.Unix.tm_min
+        ; second = tm.Unix.tm_sec
+        } in
+      Lit ts
+    let date ?(year = 0) ?(month = 0) ?(day = 0) = fun _ ->
+      Lit (Lit.Date { base_time with year; month; day })
+    let datetime ?(year = 0) ?(month = 0) ?(day = 0)
+                 ?(hour = 0) ?(minute = 0) ?(second = 0) = fun _ ->
+      Lit (Lit.Datetime { base_time with year; month; day; minute; second })
+
+    let acos f = fun src -> Expr.Acos (f src)
+    let ascii f = fun src -> Expr.Ascii (f src)
+    let asin f = fun src -> Expr.Asin (f src)
+    let atan f = fun src -> Expr.Atan (f src)
+    let atan2 f g = fun src -> Expr.Atan2 (f src, g src)
+    let avg f = fun src -> Expr.Avg (f src)
+    let between f g = fun src -> Expr.Between (f src, g src)
+    let bin f = fun src -> Expr.Bin (f src)
+    let bit_and f = fun src -> Expr.Bit_and (f src)
+    let bit_count f = fun src -> Expr.Bit_count (f src)
+    let bit_length f = fun src -> Expr.Bit_length (f src)
+    let bit_or f = fun src -> Expr.Bit_or (f src)
+    let bit_xor f = fun src -> Expr.Bit_xor (f src)
+    let ceil f = fun src -> Expr.Ceil (f src)
+    let char f = fun src -> Expr.Char (f src)
+    let char_length f = fun src -> Expr.Char_length (f src)
+    let charset f = fun src -> Expr.Charset (f src)
+    let coalesce f = fun src -> Expr.Coalesce (f src)
+    let collation f = fun src -> Expr.Collation (f src)
+    let compress f = fun src -> Expr.Compress (f src)
+    let concat f = fun src -> Expr.Concat (f src)
+    let concat_ws sep l = fun src -> Expr.Concat_ws (sep, List.map (fun f -> f src) l)
+    let connection_id () = fun src -> Expr.Connection_id
+    let conv f i j = fun src -> Expr.Conv (f src, i, j)
+    let cos f = fun src -> Expr.Cos (f src)
+    let cot f = fun src -> Expr.Cot (f src)
+    let count ?(distinct = false) f = fun src -> Expr.Count (f src, distinct)
+    let crc32 f = fun src -> Expr.Crc32 (f src)
+    let current_date () = fun src -> Expr.Current_date
+    let current_time () = fun src -> Expr.Current_time
+    let current_timestamp () = fun src -> Expr.Current_timestamp
+    let current_user () = fun src -> Expr.Current_user
+    let database () = fun src -> Expr.Database
+    let date_of : ('s M.Select.source -> [< `Date | `Datetime] time t) -> 's M.Select.source -> [`Date] time t = fun f src -> Expr.DateFn (f src)
+    let date_add f i u = fun src -> Expr.Date_add (f src, i, u)
+    let date_format f fmt = fun src -> Expr.Date_format (f src, fmt)
+    let date_sub f i u = fun src -> Expr.Date_sub (f src, i, u)
+    let datediff f g = fun src -> Expr.Datediff (f src, g src)
+    let dayname f = fun src -> Expr.Dayname (f src)
+    let dayofmonth f = fun src -> Expr.Dayofmonth (f src)
+    let dayofweek f = fun src -> Expr.Dayofweek (f src)
+    let dayofyear f = fun src -> Expr.Dayofyear (f src)
+    let degrees f = fun src -> Expr.Degrees (f src)
+    let expr f = fun src -> Expr.Expr (f src)
+    let floor f = fun src -> Expr.Floor (f src)
+    let from_days f = fun src -> Expr.From_days (f src)
+    let from_unixtime f = fun src -> Expr.From_unixtime (f src)
+    let if_ f g h = fun src -> Expr.If (f src, g src, h src)
+    let ifnull f g = fun src -> Expr.Ifnull (f src, g src)
+    let last_day f = fun src -> Expr.Last_day (f src)
+    let length f = fun src -> Expr.Length (f src)
+    let localtime () = fun src -> Expr.Localtime
+    let log f = fun src -> Expr.Log (f src)
+    let log10 f = fun src -> Expr.Log10 (f src)
+    let log2 f = fun src -> Expr.Log2 (f src)
+    let lower f = fun src -> Expr.Lower (f src)
+    let lpad f = fun src -> Expr.Lpad (f src)
+    let ltrim f = fun src -> Expr.Ltrim (f src)
+    let max f = fun src -> Expr.Max (f src)
+    let md5 f = fun src -> Expr.Md5 (f src)
+    let minute f = fun src -> Expr.Minute (f src)
+    let month f = fun src -> Expr.Month (f src)
+    let monthname f = fun src -> Expr.Monthname (f src)
+    let now () = fun src -> Expr.Now
+    let nullif f g = fun src -> Expr.Nullif (f src, g src)
+    let ord f = fun src -> Expr.Ord (f src)
+    let pow f = fun src -> Expr.Pow (f src)
+    let radians f = fun src -> Expr.Radians (f src)
+    let rand f = fun src -> Expr.Rand (f src)
+    let repeat f n = fun src -> Expr.Repeat (f src, n)
+    let replace f s1 s2 = fun src -> Expr.Replace (f src, s1, s2)
+    let reverse f = fun src -> Expr.Reverse (f src)
+    let (=~) f re = fun src -> Expr.Rlike (f src, re)
+    let round f = fun src -> Expr.Round (f src)
+    let rpad f = fun src -> Expr.Rpad (f src)
+    let rtrim f = fun src -> Expr.Rtrim (f src)
+    let sec_to_time f = fun src -> Expr.Sec_to_time (f src)
+    let second f = fun src -> Expr.Second (f src)
+    let sha1 f = fun src -> Expr.Sha1 (f src)
+    let sha2 f = fun src -> Expr.Sha2 (f src)
+    let sign f = fun src -> Expr.Sign (f src)
+    let sin f = fun src -> Expr.Sin (f src)
+    let sqrt f = fun src -> Expr.Sqrt (f src)
+    let stddev f = fun src -> Expr.Stddev (f src)
+    let substring f pos len = fun src -> Expr.Substring (f src, pos, len)
+    let substring_index f d n = fun src -> Expr.Substring_index (f src, d, n)
+    let sum f d = fun src -> Expr.Sum (f src, d)
+    let tan f = fun src -> Expr.Tan (f src)
+    let time_of : ('s M.Select.source -> [< `Time | `Datetime] time t) -> 's M.Select.source -> [`Time] time t = fun f src -> Expr.TimeFn (f src)
+    let trim f = fun src -> Expr.Trim (f src)
+    let uncompress f = fun src -> Expr.Uncompress (f src)
+    let utc_date () = fun src -> Expr.Utc_date
+    let utc_time () = fun src -> Expr.Utc_time
+    let utc_timestamp () = fun src -> Expr.Utc_timestamp
+    let uuid () = fun src -> Expr.Uuid
+    let uuid_short () = fun src -> Expr.Uuid_short
+    let week () = fun src -> Expr.Week
+    let weekday () = fun src -> Expr.Weekday
+    let weekofyear () = fun src -> Expr.Weekofyear
+    let upper f = fun src -> Expr.Upper (f src)
+    let year () = fun src -> Expr.Year
+  end
+
   let seal stmt = seal ~handover:{ Expr.handover = Expr.builder } stmt
 end

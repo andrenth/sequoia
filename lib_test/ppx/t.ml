@@ -26,7 +26,7 @@ let () =
            ; field Team.name
            ; subquery (from User.table |> select [field User.name])
            ; field User.id + int 1
-           ; date_add (date ~year:2016 ~month:10 ~day:20) 30 Days
+           ; date_add (date ~year:2016 ~month:10 ~day:20) 30 Lit.Days
            ; if_ (length (field User.name) > int 10)
                (field User.name)
                (string "short")
@@ -134,7 +134,7 @@ let () =
 let () = print_endline "==="
 
 let () =
-  let query, params = Mysql.(Insert.(Vector.(Expr.(Vector.(
+  let query, params = Mysql.(Lit.(Vector.(Insert.(Vector.(
     insert
       ~into:User.table
       ~fields:[User.id; User.name; User.site]

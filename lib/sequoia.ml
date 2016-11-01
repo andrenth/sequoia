@@ -81,6 +81,92 @@ module Make (D : Driver) = struct
       | Blob of bytes
   end
 
+  module Lit = struct
+    type 'a t = ..
+    type 'a t +=
+      | Bool : bool -> bool t
+      | Int : int -> int t
+      | Float : float -> float t
+      | String : string -> string t
+      | Blob : bytes -> bytes t
+
+    let bool b = Bool b
+    let int i = Int i
+    let float x = Float x
+    let string s = String s
+    let blob b = Blob b
+
+    module Null = struct
+      type 'a t +=
+        | Bool : bool -> bool option t
+        | Int : int -> int option t
+        | Float : float -> float option t
+        | String : string -> string option t
+        | Blob : bytes -> bytes option t
+
+      let bool b = Bool b
+      let int i = Int i
+      let float x = Float x
+      let string s = String s
+      let blob b = Blob b
+    end
+
+    let to_param : type a. a t -> Param.t = function
+      | Bool b -> Param.Bool b
+      | Int i -> Param.Int i
+      | Float x -> Param.Float x
+      | String s -> Param.String s
+      | Blob b -> Param.Blob b
+      | Null.Bool b -> Param.Bool b
+      | Null.Int i -> Param.Int i
+      | Null.Float x -> Param.Float x
+      | Null.String s -> Param.String s
+      | Null.Blob b -> Param.Blob b
+      | _ -> assert false
+
+    module Vector = Vector.Make(struct
+      type ('a, 'b) elem = 'b t
+    end)
+  end
+
+  module Expr = struct
+    type 'a t = ..
+    module Base = struct
+      type 'a t +=
+        | Lit : 'a Lit.t -> 'a t
+        | Eq : 'a t * 'a t -> bool t
+        | Neq : 'a t * 'a t -> bool t
+        | Gt : 'a t * 'a t -> bool t
+        | Ge : 'a t * 'a t -> bool t
+        | Lt : 'a t * 'a t -> bool t
+        | Le : 'a t * 'a t -> bool t
+        | And : bool t * bool t -> bool t
+        | Or : bool t * bool t -> bool t
+        | Like : string t * string -> bool t
+        | Not_like : string t * string -> bool t
+        | In : 'a t * 'a t list -> bool t
+        | Not_in : 'a t * 'a t list -> bool t
+        | Is_not_null : 'a option t -> bool t
+        | Is_null : 'a option t -> bool t
+        | IAdd : int t * int t -> int t
+        | ISub : int t * int t -> int t
+        | IMul : int t * int t -> int t
+        | IDiv : int t * int t -> int t
+        | FAdd : float t * float t -> float t
+        | FSub : float t * float t -> float t
+        | FMul : float t * float t -> float t
+        | FDiv : float t * float t -> float t
+        | LShift : int t * int -> int t
+        | RShift : int t * int -> int t
+
+      let bool b = Lit (Lit.Bool b)
+      let int i = Lit (Lit.Int i)
+      let float x = Lit (Lit.Float x)
+      let string s = Lit (Lit.String s)
+      let blob b = Lit (Lit.Blob b)
+    end
+  end
+
   type build_step =
     { repr : string
     ; params : Param.t list
@@ -132,6 +218,7 @@ module Make (D : Driver) = struct
       | Null.Float (n, _) -> n
       | Null.String (n, _) -> n
       | Null.Blob (n, _) -> n
+      | _ -> assert false
 
     let table : type u a. (u, a) t -> u Table.t = function
       | Bool (_, t) -> t
@@ -144,6 +231,7 @@ module Make (D : Driver) = struct
       | Null.Float (_, t) -> t
       | Null.String (_, t) -> t
       | Null.Blob (_, t) -> t
+      | _ -> assert false
 
     let to_string fld =
       let t = table fld in
@@ -218,7 +306,7 @@ module Make (D : Driver) = struct
       include MakeTable (struct type t let name = name end)
     end : TABLE)
 
-  module rec Select : sig
+  module Select : sig
     type _ t
 
     type 's source
@@ -230,6 +318,95 @@ module Make (D : Driver) = struct
     type ('s1, 't1, 't2, 's2) steps =
       | There : (('t2 -> _) as 's1, 't1, 't2, 's1) steps
       | Skip : ('s1, 't1, 't2, 's2) steps -> ('a -> 's1, 't1, 't2, 'a -> 's2) steps
+
+    module Expr : sig
+      type 's select = 's t
+
+      include module type of Expr.Base
+
+      type 'a Expr.t +=
+        | Field : ('t, 'a) Field.t * 's1 source * ('s1, 't1, 't, 's2) steps -> 'a Expr.t
+        | Foreign : ('t, 't2) Field.foreign_key * 's1 source * ('s1, 't1, 't, 's2) steps -> 'a Expr.t
+        | Select : 's select -> 'a Expr.t
+
+      type 'a t = 'a Expr.t
+
+      type handover = { handover : 'a. build_step -> 'a t -> build_step }
+
+      val build : handover:handover -> build_step -> 'a t -> build_step
+      val build_param : build_step -> Param.t -> build_step
+      val build_function : handover:handover -> build_step
+                        -> string -> 'a t list -> string
+                        -> build_step
+
+      val bool : bool -> 's source -> bool t
+      val int : int -> 's source -> int t
+      val float : float -> 's source -> float t
+      val string : string -> 's source -> string t
+      val blob : string -> 's source -> bytes t
+      val field : ('t, 'a) Field.t -> ('b, 'c, 't, 'd) steps -> 'b source -> 'a t
+      val foreign_key : ('t1, 't2) Field.foreign_key -> ('a, 'b, 't1, 'c) steps -> 'a source -> 'd t
+
+      val subquery : 's select -> 't source -> 'c t
+
+      val unwrap : ('t, 'a option) Field.t -> ('b, 'c, 't, 'd) steps -> 'b source -> 'a t
+
+      val (=) : ('s source -> 'a t) -> ('s source -> 'a t) -> 's source
+             -> bool t
+      val (<>) : ('s source -> 'a t) -> ('s source -> 'a t) -> 's source
+              -> bool t
+      val (=%) : ('s source -> string t) -> string -> 's source -> bool t
+      val (<>%) : ('s source -> string t) -> string -> 's source -> bool t
+      val (>) : ('s source -> 'a t) -> ('s source -> 'a t) -> 's source
+             -> bool t
+      val (>=) : ('s source -> 'a t) -> ('s source -> 'a t) -> 's source
+              -> bool t
+      val (<) : ('s source -> 'a t) -> ('s source -> 'a t) -> 's source
+             -> bool t
+      val (<=) : ('s source -> 'a t) -> ('s source -> 'a t) -> 's source
+              -> bool t
+      val (&&) : ('s source -> bool t) -> ('s source -> bool t)
+              -> 's source -> bool t
+      val (||) : ('s source -> bool t) -> ('s source -> bool t)
+              -> 's source -> bool t
+      val (+) : ('s source -> int t) -> ('s source -> int t) -> 's source
+             -> int t
+      val (-) : ('s source -> int t) -> ('s source -> int t) -> 's source
+             -> int t
+      val ( * ) : ('s source -> int t) -> ('s source -> int t)
+               -> 's source -> int t
+      val (/) : ('s source -> int t) -> ('s source -> int t) -> 's source
+             -> int t
+      val (+.) : ('s source -> float t) -> ('s source -> float t)
+              -> 's source -> float t
+      val (-.) : ('s source -> float t) -> ('s source -> float t)
+              -> 's source -> float t
+      val ( *. ) : ('s source -> float t) -> ('s source -> float t)
+                -> 's source -> float t
+      val (/.) : ('s source -> float t) -> ('s source -> float t)
+              -> 's source -> float t
+      val (<<) : ('s source -> int t) -> int -> 's source -> int t
+      val (>>) : ('s source -> int t) -> int -> 's source -> int t
+      val (=?) : ('s source -> 'a t) -> ('s source -> 'a t) list
+              -> 's source -> bool t
+      val (<>?) : ('s source -> 'a t) -> ('s source -> 'a t) list
+               -> 's source -> bool t
+      val is_null : ('s source -> 'a option t) -> 's source -> bool t
+      val is_not_null : ('s source -> 'a option t) -> 's source -> bool t
+
+      type ('a, 'b) expr = 'b t
+
+      module ExprVector :
+        VECTOR with type ('a, 'b) elem := ('a, 'b) expr
+
+      type ('s, 'a) mk = 's source -> 'a t
+
+      module Vector :
+        VECTOR with type ('s, 'a) elem := ('s, 'a) mk
+
+      val vectormk_to_vector : 's source -> ('s, 'a, 'n) Vector.t
+                            -> ('s, 'a, 'n) ExprVector.t
+    end
 
     val seal : ?handover:Expr.handover -> 's t -> string * Param.t list
     val select : ('s, 'a, 'n Nat.s) Expr.Vector.t -> 's source -> 's t
@@ -285,224 +462,17 @@ module Make (D : Driver) = struct
       | There : (('t2 -> _) as 's1, 't1, 't2, 's1) steps
       | Skip : ('s1, 't1, 't2, 's2) steps -> ('a -> 's1, 't1, 't2, 'a -> 's2) steps
 
-    type _ t =
-      | S :
-          { source   : 's source
-          ; select   : ('a, _, 'n Nat.s) Expr.EVec.t
-          ; where    : 'b Expr.t option
-          ; group_by : 'c Expr.t option
-          ; order_by : ('d, _, 'm Nat.s) Expr.EVec.t option
-          ; limit    : (int * int) option
-          } -> 's t
+  module rec SelectExpr : sig
+    type 's select = 's T.t
 
-    let join_to_string = function
-      | Left -> "LEFT"
-      | Right -> "RIGHT"
-      | Inner -> "INNER"
+    include module type of Expr.Base
 
-    let join_exprs ~handover st =
-      Expr.EVec.fold_left
-        { Expr.EVec.f = fun (st, i) e ->
-          let st' = Expr.build ~handover st e in
-          if i = 0 then
-            (st', 1)
-          else
-            let st =
-              { repr = st.repr ^ ", " ^ st'.repr
-              ; params = st.params @ st'.params
-              ; pos = st'.pos
-              } in
-            (st, i + 1) }
-        ({ blank_step with pos = st.pos }, 0)
+    type 'a Expr.t +=
+      | Field : ('t, 'a) Field.t * 's1 source * ('s1, 't1, 't, 's2) steps -> 'a Expr.t
+      | Foreign : ('t, 't2) Field.foreign_key * 's1 source * ('s1, 't1, 't, 's2) steps -> 'a Expr.t
+      | Select : 's T.t -> 'a Expr.t
 
-    let build_select ~handover st exprs =
-      fst (join_exprs ~handover st exprs)
-
-    let rec build_source
-      : type s. handover:Expr.handover
-             -> build_step
-             -> ('a, _, 'n) Expr.EVec.t -> s source
-             -> build_step =
-      fun ~handover st sel -> function
-        | From t ->
-            let st = build_select ~handover st sel in
-            { repr = sprintf "SELECT %s\nFROM %s" st.repr (Table.to_string t)
-            ; params = st.params
-            ; pos = st.pos
-            }
-        | Join (join, (a, b), src, _) ->
-            let st = build_source ~handover st sel src in
-            let repr =
-              st.repr
-                ^ "\n"
-                ^ sprintf "%s JOIN %s ON %s = %s"
-                    (join_to_string join)
-                    (Table.to_string (Field.table a))
-                    (Field.to_string a)
-                    (Field.to_string b) in
-            { repr
-            ; params = st.params
-            ; pos = st.pos
-            }
-
-    let build_where
-      : type a. handover:Expr.handover -> build_step -> a Expr.t option
-             -> build_step =
-      fun ~handover st -> function
-        | Some expr ->
-            let st = Expr.build ~handover st expr in
-            { st with repr = sprintf "WHERE (%s)" st.repr }
-        | None ->
-            { blank_step with pos = st.pos }
-
-    let build_group_by
-      : type a. handover:Expr.handover -> build_step -> a Expr.t option
-             -> build_step =
-      fun ~handover st -> function
-        | Some expr ->
-            let st = Expr.build ~handover st expr in
-            { st with repr = sprintf "GROUP BY (%s)" st.repr }
-        | None ->
-            { blank_step with pos = st.pos }
-
-    let build_order_by ~handover st = function
-      | Some exprs ->
-          let st = fst (join_exprs ~handover st exprs) in
-          { st with repr = "ORDER BY " ^ st.repr }
-      | None ->
-          st
-
-    let build_limit = fun st lim ->
-      match lim with
-      | Some (0, lim) ->
-          { repr = sprintf "LIMIT %s" (D.placeholder st.pos)
-          ; params = [Param.Int lim]
-          ; pos = st.pos + 1
-          }
-      | Some (off, lim) ->
-          { repr = sprintf "LIMIT %s, %s" (D.placeholder st.pos)  (D.placeholder (st.pos + 1))
-          ; params = [Param.Int off; Param.Int lim]
-          ; pos = st.pos + 2
-          }
-      | None ->
-          { blank_step with pos = st.pos }
-
-    let join_lines =
-      List.fold_left
-        (fun acc s ->
-          if s = "" then
-            acc
-          else if acc = "" then
-            s
-          else
-            acc ^ "\n" ^ s)
-        ""
-
-    let unknown = { Expr.handover = fun _ -> failwith "unknown expression" }
-
-    let seal
-      : type s. ?handover:Expr.handover -> s Select.t -> string * Param.t list =
-      fun ?(handover = unknown) (S stmt) ->
-        let st = { blank_step with pos = 1 } in
-        let src_st = build_source ~handover st stmt.select stmt.source in
-        let where_st = build_where ~handover src_st stmt.where in
-        let group_by_st = build_group_by ~handover where_st stmt.group_by in
-        let order_by_st = build_order_by ~handover group_by_st stmt.order_by in
-        let limit_st = build_limit order_by_st stmt.limit in
-        let params = src_st.params
-                   @ where_st.params
-                   @ group_by_st.params
-                   @ order_by_st.params
-                   @ limit_st.params in
-        let repr =
-          join_lines
-          [ src_st.repr
-          ; where_st.repr
-          ; group_by_st.repr
-          ; order_by_st.repr
-          ; limit_st.repr
-        ] in
-        repr, params
-
-    let to_string stmt = fst (seal stmt)
-
-    let select : type s a. (s, a, 'n Nat.s) Expr.Vector.t -> s source -> s Select.t = fun bl src ->
-      S
-        { source = src
-        ; select = Expr.vectormk_to_vector src bl
-        ; where = None
-        ; group_by = None
-        ; order_by = None
-        ; limit = None
-        }
-
-    let from t =
-      From t
-
-    let join kind rel steps src =
-      Join (kind, rel, src, steps)
-
-    let left_join  (rel, steps) src = join Left  rel steps src
-    let right_join (rel, steps) src = join Right rel steps src
-    let inner_join (rel, steps) src = join Inner rel steps src
-
-    let self fld1 fld2 steps = ((fld1, fld2), steps)
-    let having_one rel steps = (rel, steps)
-    let belonging_to (fk, pk) steps = ((pk, fk), steps)
-
-    let where expr (S stmt) =
-      S { stmt with where = Some (expr stmt.source) }
-
-    let group_by expr (S stmt) =
-      S { stmt with group_by = Some (expr stmt.source) }
-
-    let order_by
-      : type a s n. (s, a, n Nat.s) Expr.Vector.t
-             -> s Select.t
-             -> s Select.t =
-      fun bl (S stmt) ->
-        let vec = Expr.vectormk_to_vector stmt.source bl in
-        S { stmt with order_by = Some vec }
-
-    let limit ?(offset = 0) n (S stmt) =
-      S { stmt with limit = Some (offset, n) }
-  end
-
-  and Expr : sig
-    type 'a t = ..
-    type 'a t +=
-      | Bool : bool -> bool t
-      | Int : int -> int t
-      | Float : float -> float t
-      | String : string -> string t
-      | Blob : bytes -> bytes t
-      | Eq : 'a t * 'a t -> bool t
-      | Neq : 'a t * 'a t -> bool t
-      | Gt : 'a t * 'a t -> bool t
-      | Ge : 'a t * 'a t -> bool t
-      | Lt : 'a t * 'a t -> bool t
-      | Le : 'a t * 'a t -> bool t
-      | And : bool t * bool t -> bool t
-      | Or : bool t * bool t -> bool t
-      | Like : string t * string -> bool t
-      | Not_like : string t * string -> bool t
-      | In : 'a t * 'a t list -> bool t
-      | Not_in : 'a t * 'a t list -> bool t
-      | Is_not_null : 'a option t -> bool t
-      | Is_null : 'a option t -> bool t
-      | IAdd : int t * int t -> int t
-      | ISub : int t * int t -> int t
-      | IMul : int t * int t -> int t
-      | IDiv : int t * int t -> int t
-      | FAdd : float t * float t -> float t
-      | FSub : float t * float t -> float t
-      | FMul : float t * float t -> float t
-      | FDiv : float t * float t -> float t
-      | LShift : int t * int -> int t
-      | RShift : int t * int -> int t
-      | Field : ('t, 'a) Field.t * 's1 Select.source * ('s1, 't1, 't, 's2) Select.steps -> 'a t
-      | Foreign : ('t, 't2) Field.foreign_key * 's1 Select.source * ('s1, 't1, 't, 's2) Select.steps -> 'a t
-      | Select : 's Select.t -> 'a t
+    type 'a t = 'a Expr.t
 
     type handover = { handover : 'a. build_step -> 'a t -> build_step }
 
@@ -512,121 +482,99 @@ module Make (D : Driver) = struct
                       -> string -> 'a t list -> string
                       -> build_step
 
-    val bool : bool -> 's Select.source -> bool t
-    val int : int -> 's Select.source -> int t
-    val float : float -> 's Select.source -> float t
-    val string : string -> 's Select.source -> string t
-    val blob : string -> 's Select.source -> bytes t
-    val field : ('t, 'a) Field.t -> ('b, 'c, 't, 'd) Select.steps -> 'b Select.source -> 'a t
-    val foreign_key : ('t1, 't2) Field.foreign_key -> ('a, 'b, 't1, 'c) Select.steps -> 'a Select.source -> 'd t
-    val subquery : 's Select.t -> 't Select.source -> 'c t
-    val unwrap : ('t, 'a option) Field.t -> ('b, 'c, 't, 'd) Select.steps -> 'b Select.source -> 'a t
+    val bool : bool -> 's source -> bool t
+    val int : int -> 's source -> int t
+    val float : float -> 's source -> float t
+    val string : string -> 's source -> string t
+    val blob : string -> 's source -> bytes t
+    val field : ('t, 'a) Field.t -> ('b, 'c, 't, 'd) steps -> 'b source -> 'a t
+    val foreign_key : ('t1, 't2) Field.foreign_key -> ('a, 'b, 't1, 'c) steps -> 'a source -> 'd t
 
-    val (=) : ('s Select.source -> 'a t) -> ('s Select.source -> 'a t) -> 's Select.source
+    val subquery : 's T.t -> 't source -> 'c t
+
+    val unwrap : ('t, 'a option) Field.t -> ('b, 'c, 't, 'd) steps -> 'b source -> 'a t
+
+    val (=) : ('s source -> 'a t) -> ('s source -> 'a t) -> 's source
            -> bool t
-    val (<>) : ('s Select.source -> 'a t) -> ('s Select.source -> 'a t) -> 's Select.source
+    val (<>) : ('s source -> 'a t) -> ('s source -> 'a t) -> 's source
             -> bool t
-    val (=%) : ('s Select.source -> string t) -> string -> 's Select.source -> bool t
-    val (<>%) : ('s Select.source -> string t) -> string -> 's Select.source -> bool t
-    val (>) : ('s Select.source -> 'a t) -> ('s Select.source -> 'a t) -> 's Select.source
+    val (=%) : ('s source -> string t) -> string -> 's source -> bool t
+    val (<>%) : ('s source -> string t) -> string -> 's source -> bool t
+    val (>) : ('s source -> 'a t) -> ('s source -> 'a t) -> 's source
            -> bool t
-    val (>=) : ('s Select.source -> 'a t) -> ('s Select.source -> 'a t) -> 's Select.source
+    val (>=) : ('s source -> 'a t) -> ('s source -> 'a t) -> 's source
             -> bool t
-    val (<) : ('s Select.source -> 'a t) -> ('s Select.source -> 'a t) -> 's Select.source
+    val (<) : ('s source -> 'a t) -> ('s source -> 'a t) -> 's source
            -> bool t
-    val (<=) : ('s Select.source -> 'a t) -> ('s Select.source -> 'a t) -> 's Select.source
+    val (<=) : ('s source -> 'a t) -> ('s source -> 'a t) -> 's source
             -> bool t
-    val (&&) : ('s Select.source -> bool t) -> ('s Select.source -> bool t)
-            -> 's Select.source -> bool t
-    val (||) : ('s Select.source -> bool t) -> ('s Select.source -> bool t)
-            -> 's Select.source -> bool t
-    val (+) : ('s Select.source -> int t) -> ('s Select.source -> int t) -> 's Select.source
+    val (&&) : ('s source -> bool t) -> ('s source -> bool t)
+            -> 's source -> bool t
+    val (||) : ('s source -> bool t) -> ('s source -> bool t)
+            -> 's source -> bool t
+    val (+) : ('s source -> int t) -> ('s source -> int t) -> 's source
            -> int t
-    val (-) : ('s Select.source -> int t) -> ('s Select.source -> int t) -> 's Select.source
+    val (-) : ('s source -> int t) -> ('s source -> int t) -> 's source
            -> int t
-    val ( * ) : ('s Select.source -> int t) -> ('s Select.source -> int t)
-             -> 's Select.source -> int t
-    val (/) : ('s Select.source -> int t) -> ('s Select.source -> int t) -> 's Select.source
+    val ( * ) : ('s source -> int t) -> ('s source -> int t)
+             -> 's source -> int t
+    val (/) : ('s source -> int t) -> ('s source -> int t) -> 's source
            -> int t
-    val (+.) : ('s Select.source -> float t) -> ('s Select.source -> float t)
-            -> 's Select.source -> float t
-    val (-.) : ('s Select.source -> float t) -> ('s Select.source -> float t)
-            -> 's Select.source -> float t
-    val ( *. ) : ('s Select.source -> float t) -> ('s Select.source -> float t)
-              -> 's Select.source -> float t
-    val (/.) : ('s Select.source -> float t) -> ('s Select.source -> float t)
-            -> 's Select.source -> float t
-    val (<<) : ('s Select.source -> int t) -> int -> 's Select.source -> int t
-    val (>>) : ('s Select.source -> int t) -> int -> 's Select.source -> int t
-    val (=?) : ('s Select.source -> 'a t) -> ('s Select.source -> 'a t) list
-            -> 's Select.source -> bool t
-    val (<>?) : ('s Select.source -> 'a t) -> ('s Select.source -> 'a t) list
-             -> 's Select.source -> bool t
-    val is_null : ('s Select.source -> 'a option t) -> 's Select.source -> bool t
-    val is_not_null : ('s Select.source -> 'a option t) -> 's Select.source -> bool t
+    val (+.) : ('s source -> float t) -> ('s source -> float t)
+            -> 's source -> float t
+    val (-.) : ('s source -> float t) -> ('s source -> float t)
+            -> 's source -> float t
+    val ( *. ) : ('s source -> float t) -> ('s source -> float t)
+              -> 's source -> float t
+    val (/.) : ('s source -> float t) -> ('s source -> float t)
+            -> 's source -> float t
+    val (<<) : ('s source -> int t) -> int -> 's source -> int t
+    val (>>) : ('s source -> int t) -> int -> 's source -> int t
+    val (=?) : ('s source -> 'a t) -> ('s source -> 'a t) list
+            -> 's source -> bool t
+    val (<>?) : ('s source -> 'a t) -> ('s source -> 'a t) list
+             -> 's source -> bool t
+    val is_null : ('s source -> 'a option t) -> 's source -> bool t
+    val is_not_null : ('s source -> 'a option t) -> 's source -> bool t
 
     type ('a, 'b) expr = 'b t
 
-    module EVec :
+    module ExprVector :
       VECTOR with type ('a, 'b) elem := ('a, 'b) expr
 
-    type ('s, 'a) mk = 's Select.source -> 'a t
+    type ('s, 'a) mk = 's source -> 'a t
 
     module Vector :
       VECTOR with type ('s, 'a) elem := ('s, 'a) mk
 
-    val vectormk_to_vector : 's Select.source -> ('s, 'a, 'n) Vector.t
-                          -> ('s, 'a, 'n) EVec.t
+    val vectormk_to_vector : 's source -> ('s, 'a, 'n) Vector.t
+                          -> ('s, 'a, 'n) ExprVector.t
 
   end = struct
-    type 'a t = ..
-    type 'a t +=
-      | Bool : bool -> bool t
-      | Int : int -> int t
-      | Float : float -> float t
-      | String : string -> string t
-      | Blob : bytes -> bytes t
-      | Eq : 'a t * 'a t -> bool t
-      | Neq : 'a t * 'a t -> bool t
-      | Gt : 'a t * 'a t -> bool t
-      | Ge : 'a t * 'a t -> bool t
-      | Lt : 'a t * 'a t -> bool t
-      | Le : 'a t * 'a t -> bool t
-      | And : bool t * bool t -> bool t
-      | Or : bool t * bool t -> bool t
-      | Like : string t * string -> bool t
-      | Not_like : string t * string -> bool t
-      | In : 'a t * 'a t list -> bool t
-      | Not_in : 'a t * 'a t list -> bool t
-      | Is_not_null : 'a option t -> bool t
-      | Is_null : 'a option t -> bool t
-      | IAdd : int t * int t -> int t
-      | ISub : int t * int t -> int t
-      | IMul : int t * int t -> int t
-      | IDiv : int t * int t -> int t
-      | FAdd : float t * float t -> float t
-      | FSub : float t * float t -> float t
-      | FMul : float t * float t -> float t
-      | FDiv : float t * float t -> float t
-      | LShift : int t * int -> int t
-      | RShift : int t * int -> int t
-      | Field : ('t, 'a) Field.t * 's1 Select.source * ('s1, 't1, 't, 's2) Select.steps -> 'a t
-      | Foreign : ('t, 't2) Field.foreign_key * 's1 Select.source * ('s1, 't1, 't, 's2) Select.steps -> 'a t
-      | Select : 's Select.t -> 'a t
+    type 's select = 's T.t
 
-    let bool b = fun _ -> Bool b
-    let int i = fun _ -> Int i
-    let float x = fun _ -> Float x
-    let string s = fun _ -> String s
-    let blob b = fun _ -> Blob b
+    include Expr.Base
+
+    type 'a Expr.t +=
+      | Field : ('t, 'a) Field.t * 's1 source * ('s1, 't1, 't, 's2) steps -> 'a Expr.t
+      | Foreign : ('t, 't2) Field.foreign_key * 's1 source * ('s1, 't1, 't, 's2) steps -> 'a Expr.t
+      | Select : 's T.t -> 'a Expr.t
+
+    type 'a t = 'a Expr.t
+
+    let bool b = fun _ -> bool b
+    let int i = fun _ -> int i
+    let float x = fun _ -> float x
+    let string s = fun _ -> string s
+    let blob b = fun _ -> blob b
     let field fld steps = fun src -> Field (fld, src, steps)
     let foreign_key fk steps = fun src -> Foreign (fk, src, steps)
     let subquery sel = fun src -> Select sel
 
     (* XXX is there a better name for this? *)
     let unwrap
-      : type a. ('t, a option) Field.t -> ('b, 'c, 't, 'd) Select.steps
-             -> 'b Select.source -> a t =
+      : type a. ('t, a option) Field.t -> ('b, 'c, 't, 'd) steps
+             -> 'b source -> a Expr.t =
       fun fld steps src ->
         match fld with
         | Field.Null.Bool (n, t) -> Field (Field.Bool (n, t), src, steps)
@@ -634,8 +582,9 @@ module Make (D : Driver) = struct
         | Field.Null.Float (n, t) -> Field (Field.Float (n, t), src, steps)
         | Field.Null.String (n, t) -> Field (Field.String (n, t), src, steps)
         | Field.Null.Blob (n, t) -> Field (Field.Blob (n, t), src, steps)
+        | _ -> assert false
 
-    type handover = { handover : 'a. build_step -> 'a t -> build_step }
+    type handover = { handover : 'a. build_step -> 'a Expr.t -> build_step }
 
     let build_param st p =
       { repr = D.placeholder st.pos
@@ -643,14 +592,26 @@ module Make (D : Driver) = struct
       ; pos = st.pos + 1
       }
 
-    let rec build
-      : type a. handover:handover -> build_step -> a t -> build_step =
-      fun ~handover st -> function
+    let build_lit : type a. build_step -> a Lit.t -> build_step =
+      fun st lit ->
+        let open Lit in
+        match lit with
         | Bool b -> build_param st (Param.Bool b)
         | Int i -> build_param st (Param.Int i)
         | Float x -> build_param st (Param.Float x)
         | String s -> build_param st (Param.String s)
         | Blob b -> build_param st (Param.Blob b)
+        | Null.Bool b -> build_param st (Param.Bool b)
+        | Null.Int i -> build_param st (Param.Int i)
+        | Null.Float x -> build_param st (Param.Float x)
+        | Null.String s -> build_param st (Param.String s)
+        | Null.Blob b -> build_param st (Param.Blob b)
+        | _ -> assert false
+
+    let rec build
+      : type a. handover:handover -> build_step -> a Expr.t -> build_step =
+      fun ~handover st -> function
+        | Lit lit -> build_lit st lit
         | Eq (e1, e2) -> build_binop ~handover st "=" e1 e2
         | Neq (e1, e2) -> build_binop ~handover st "<>" e1 e2
         | Gt (e1, e2) -> build_binop ~handover st ">" e1 e2
@@ -714,7 +675,7 @@ module Make (D : Driver) = struct
             ; pos = st.pos
             }
         | Select s ->
-            let repr, params = Select.seal s in
+            let repr, params = T.seal s in
             { repr = "(" ^ repr ^ ")"
             ; params
             ; pos = st.pos
@@ -723,7 +684,7 @@ module Make (D : Driver) = struct
             handover.handover st e
 
     and build_binop
-      : type a b. handover:handover -> build_step -> string -> a t -> b t
+      : type a b. handover:handover -> build_step -> string -> a Expr.t -> b Expr.t
                -> build_step =
       fun ~handover st op e1 e2 ->
         let st1 = build ~handover st e1 in
@@ -735,14 +696,14 @@ module Make (D : Driver) = struct
 
     and build_function
       : type a. handover:handover -> build_step
-             -> string -> a t list -> string
+             -> string -> a Expr.t list -> string
              -> build_step =
       fun ~handover st left l right ->
         let st = build_arg_list ~handover st l in
         { st with repr = left ^ st.repr ^ right }
 
     and build_arg_list
-      : type a. handover:handover -> build_step -> a t list -> build_step =
+      : type a. handover:handover -> build_step -> a Expr.t list -> build_step =
       fun ~handover st l ->
         fst @@ List.fold_left
           (fun (acc, i) e ->
@@ -757,111 +718,266 @@ module Make (D : Driver) = struct
           ({ blank_step with pos = st.pos }, 0)
           l
 
-    let (=)         f g = fun src -> Eq (f src, g src)
-    let (=%)        f s = fun src -> Like (f src, s)
-    let (<>)        f g = fun src -> Neq (f src, g src)
-    let (<>%)       f s = fun src -> Not_like (f src, s)
-    let (>)         f g = fun src -> Gt (f src, g src)
-    let (>=)        f g = fun src -> Ge (f src, g src)
-    let (<)         f g = fun src -> Lt (f src, g src)
-    let (<=)        f g = fun src -> Le (f src, g src)
-    let (&&)        f g = fun src -> And (f src, g src)
-    let (||)        f g = fun src -> And (f src, g src)
-    let (+)         f g = fun src -> IAdd (f src, g src)
-    let (-)         f g = fun src -> ISub (f src, g src)
-    let ( * )       f g = fun src -> IMul (f src, g src)
-    let (/)         f g = fun src -> IDiv (f src, g src)
-    let (+.)        f g = fun src -> FAdd (f src, g src)
-    let (-.)        f g = fun src -> FSub (f src, g src)
-    let ( *. )      f g = fun src -> FMul (f src, g src)
-    let (/.)        f g = fun src -> FDiv (f src, g src)
-    let (<<)        f i = fun src -> LShift (f src, i)
-    let (>>)        f i = fun src -> RShift (f src, i)
-    let (=?)        f l = fun src -> In (f src, List.map (fun f -> f src) l)
-    let (<>?)       f l = fun src -> Not_in (f src, List.map (fun f -> f src) l)
+    let (=)    f g = fun src -> Eq (f src, g src)
+    let (=%)   f s = fun src -> Like (f src, s)
+    let (<>)   f g = fun src -> Neq (f src, g src)
+    let (<>%)  f s = fun src -> Not_like (f src, s)
+    let (>)    f g = fun src -> Gt (f src, g src)
+    let (>=)   f g = fun src -> Ge (f src, g src)
+    let (<)    f g = fun src -> Lt (f src, g src)
+    let (<=)   f g = fun src -> Le (f src, g src)
+    let (&&)   f g = fun src -> And (f src, g src)
+    let (||)   f g = fun src -> And (f src, g src)
+    let (+)    f g = fun src -> IAdd (f src, g src)
+    let (-)    f g = fun src -> ISub (f src, g src)
+    let ( * )  f g = fun src -> IMul (f src, g src)
+    let (/)    f g = fun src -> IDiv (f src, g src)
+    let (+.)   f g = fun src -> FAdd (f src, g src)
+    let (-.)   f g = fun src -> FSub (f src, g src)
+    let ( *. ) f g = fun src -> FMul (f src, g src)
+    let (/.)   f g = fun src -> FDiv (f src, g src)
+    let (<<)   f i = fun src -> LShift (f src, i)
+    let (>>)   f i = fun src -> RShift (f src, i)
+    let (=?)   f l = fun src -> In (f src, List.map (fun f -> f src) l)
+    let (<>?)  f l = fun src -> Not_in (f src, List.map (fun f -> f src) l)
+
     let is_null     f   = fun src -> Is_null (f src)
     let is_not_null f   = fun src -> Is_not_null (f src)
 
-    type ('s, 'a) mk = 's Select.source -> 'a t
-    type ('a, 'b) expr = 'b t
+    type ('a, 'b) expr = 'b Expr.t
 
-    module EVec = Vector.Make(struct
-      type ('a, 'b) elem = 'b t
+    module ExprVector = Vector.Make(struct
+      type ('a, 'b) elem = ('a, 'b) expr
     end)
+
+    type ('s, 'a) mk = 's source -> 'a Expr.t
 
     module Vector = Vector.Make(struct
       type ('s, 'a) elem = ('s, 'a) mk
     end)
 
     let rec vectormk_to_vector
-      : type a s n. s Select.source
+      : type a s n. s source
                  -> (s, a, n) Vector.t
-                 -> (s, a, n) EVec.t =
+                 -> (s, a, n) ExprVector.t =
       fun src vec ->
         let open Vector in
         match vec with
         | [] ->
-            let open EVec in
+            let open ExprVector in
             []
         | f::fs ->
-            let open EVec in
+            let open ExprVector in
             (f src) :: vectormk_to_vector src fs
   end
 
-  module Insert = struct
-    module Expr = struct
-      type 'a t = ..
-      type 'a t +=
-        | Bool : bool -> bool t
-        | Int : int -> int t
-        | Float : float -> float t
-        | String : string -> string t
-        | Blob : bytes -> bytes t
+  and T : sig
+    type _ t =
+      | S :
+          { source   : 's source
+          ; select   : ('a, _, 'n Nat.s) SelectExpr.ExprVector.t
+          ; where    : 'b Expr.t option
+          ; group_by : 'c Expr.t option
+          ; order_by : ('d, _, 'm Nat.s) SelectExpr.ExprVector.t option
+          ; limit    : (int * int) option
+          } -> 's t
 
-      module Null = struct
-        type 'a t +=
-          | Bool : bool -> bool option t
-          | Int : int -> int option t
-          | Float : float -> float option t
-          | String : string -> string option t
-          | Blob : bytes -> bytes option t
+    val seal : ?handover:SelectExpr.handover -> 's t -> string * Param.t list
+  end = struct
+    module Expr = SelectExpr
+    module ExprVector = Expr.ExprVector
 
-        let bool b = Bool b
-        let int i = Int i
-        let float x = Float x
-        let string s = String s
-        let blob b = Blob b
-      end
+    type _ t =
+      | S :
+          { source   : 's source
+          ; select   : ('a, _, 'n Nat.s) ExprVector.t
+          ; where    : 'b Expr.t option
+          ; group_by : 'c Expr.t option
+          ; order_by : ('d, _, 'm Nat.s) ExprVector.t option
+          ; limit    : (int * int) option
+          } -> 's t
 
-      let to_string : type a. a t -> string = function
-        | Bool b -> string_of_bool b
-        | Int i -> string_of_int i
-        | Float x -> string_of_float x
-        | String s -> s
-        | Blob b -> b
-        | Null.Bool b -> string_of_bool b
-        | Null.Int i -> string_of_int i
-        | Null.Float x -> string_of_float x
-        | Null.String s -> s
-        | Null.Blob b -> b
+    let join_to_string = function
+      | Left -> "LEFT"
+      | Right -> "RIGHT"
+      | Inner -> "INNER"
 
-      let bool b = Bool b
-      let int i = Int i
-      let float x = Float x
-      let string s = String s
-      let blob b = Blob b
+    let join_exprs ~handover st =
+      ExprVector.fold_left
+        { ExprVector.f = fun (st, i) e ->
+          let st' = Expr.build ~handover st e in
+          if i = 0 then
+            (st', 1)
+          else
+            let st =
+              { repr = st.repr ^ ", " ^ st'.repr
+              ; params = st.params @ st'.params
+              ; pos = st'.pos
+              } in
+            (st, i + 1) }
+        ({ blank_step with pos = st.pos }, 0)
 
-      let to_param : type a. a t -> Param.t = function
-        | Int i -> Param.Int i
-        | String s -> Param.String s
-        | Null.Int i -> Param.Int i
-        | Null.String s -> Param.String s
+    let build_select ~handover st exprs =
+      fst (join_exprs ~handover st exprs)
 
-      module Vector = Vector.Make(struct
-        type ('a, 'b) elem = 'b t
-      end)
+    let rec build_source
+      : type s. handover:Expr.handover
+             -> build_step
+             -> ('a, _, 'n) ExprVector.t -> s source
+             -> build_step =
+      fun ~handover st sel -> function
+        | From t ->
+            let st = build_select ~handover st sel in
+            { repr = sprintf "SELECT %s\nFROM %s" st.repr (Table.to_string t)
+            ; params = st.params
+            ; pos = st.pos
+            }
+        | Join (join, (a, b), src, _) ->
+            let st = build_source ~handover st sel src in
+            let repr =
+              st.repr
+                ^ "\n"
+                ^ sprintf "%s JOIN %s ON %s = %s"
+                    (join_to_string join)
+                    (Table.to_string (Field.table a))
+                    (Field.to_string a)
+                    (Field.to_string b) in
+            { repr
+            ; params = st.params
+            ; pos = st.pos
+            }
+
+    let build_where
+      : type a. handover:Expr.handover
+             -> build_step
+             -> a Expr.t option
+             -> build_step =
+      fun ~handover st -> function
+        | Some expr ->
+            let st = Expr.build ~handover st expr in
+            { st with repr = sprintf "WHERE (%s)" st.repr }
+        | None ->
+            { blank_step with pos = st.pos }
+
+    let build_group_by
+      : type a. handover:Expr.handover
+             -> build_step
+             -> a Expr.t option
+             -> build_step =
+      fun ~handover st -> function
+        | Some expr ->
+            let st = Expr.build ~handover st expr in
+            { st with repr = sprintf "GROUP BY (%s)" st.repr }
+        | None ->
+            { blank_step with pos = st.pos }
+
+    let build_order_by ~handover st = function
+      | Some exprs ->
+          let st = fst (join_exprs ~handover st exprs) in
+          { st with repr = "ORDER BY " ^ st.repr }
+      | None ->
+          st
+
+    let build_limit = fun st lim ->
+      match lim with
+      | Some (0, lim) ->
+          { repr = sprintf "LIMIT %s" (D.placeholder st.pos)
+          ; params = [Param.Int lim]
+          ; pos = st.pos + 1
+          }
+      | Some (off, lim) ->
+          { repr = sprintf "LIMIT %s, %s" (D.placeholder st.pos)  (D.placeholder (st.pos + 1))
+          ; params = [Param.Int off; Param.Int lim]
+          ; pos = st.pos + 2
+          }
+      | None ->
+          { blank_step with pos = st.pos }
+
+    let join_lines =
+      List.fold_left
+        (fun acc s ->
+          if s = "" then
+            acc
+          else if acc = "" then
+            s
+          else
+            acc ^ "\n" ^ s)
+        ""
+
+    let unknown =
+      { Expr.handover = fun _ -> failwith "unknown expression" }
+
+    let seal
+      : type s. ?handover:Expr.handover -> s t -> string * Param.t list =
+      fun ?(handover = unknown) (S stmt) ->
+        let st = { blank_step with pos = 1 } in
+        let src_st = build_source ~handover st stmt.select stmt.source in
+        let where_st = build_where ~handover src_st stmt.where in
+        let group_by_st = build_group_by ~handover where_st stmt.group_by in
+        let order_by_st = build_order_by ~handover group_by_st stmt.order_by in
+        let limit_st = build_limit order_by_st stmt.limit in
+        let params = src_st.params
+                   @ where_st.params
+                   @ group_by_st.params
+                   @ order_by_st.params
+                   @ limit_st.params in
+        let repr =
+          join_lines
+          [ src_st.repr
+          ; where_st.repr
+          ; group_by_st.repr
+          ; order_by_st.repr
+          ; limit_st.repr
+        ] in
+        repr, params
     end
 
+    include T
+    module Expr = SelectExpr
+
+    let to_string stmt = fst (seal stmt)
+
+    let select : type s a. (s, a, 'n Nat.s) Expr.Vector.t -> s source -> s t = fun bl src ->
+      S
+        { source = src
+        ; select = Expr.vectormk_to_vector src bl
+        ; where = None
+        ; group_by = None
+        ; order_by = None
+        ; limit = None
+        }
+
+    let from t =
+      From t
+
+    let join kind rel steps src =
+      Join (kind, rel, src, steps)
+
+    let left_join  (rel, steps) src = join Left  rel steps src
+    let right_join (rel, steps) src = join Right rel steps src
+    let inner_join (rel, steps) src = join Inner rel steps src
+
+    let self fld1 fld2 steps = ((fld1, fld2), steps)
+    let having_one rel steps = (rel, steps)
+    let belonging_to (fk, pk) steps = ((pk, fk), steps)
+
+    let where expr (S stmt) =
+      S { stmt with where = Some (expr stmt.source) }
+
+    let group_by expr (S stmt) =
+      S { stmt with group_by = Some (expr stmt.source) }
+
+    let order_by
+      : type a s n. (s, a, n Nat.s) Expr.Vector.t -> s t -> s t =
+      fun bl (S stmt) ->
+        let vec = Expr.vectormk_to_vector stmt.source bl in
+        S { stmt with order_by = Some vec }
+
+    let limit ?(offset = 0) n (S stmt) =
+      S { stmt with limit = Some (offset, n) }
+  end
+
+  module Insert = struct
     module Vector = Vector.Make(struct
       type ('t, 'a) elem = ('t, 'a) Field.t
     end)
@@ -870,13 +986,13 @@ module Make (D : Driver) = struct
       | I :
           { table  : 't Table.t
           ; fields : ('t, 'a, 'n Nat.s) Vector.t
-          ; values : ('u, 'a, 'm Nat.s, 'n Nat.s) Expr.Vector.matrix
+          ; values : ('u, 'a, 'm Nat.s, 'n Nat.s) Lit.Vector.matrix
           } -> 'i t
 
     let insert
       : type a n. into:'u Table.t
                -> fields:('u, a, n Nat.s) Vector.t
-               -> values:('v, a, 'm Nat.s, n Nat.s) Expr.Vector.matrix
+               -> values:('v, a, 'm Nat.s, n Nat.s) Lit.Vector.matrix
                -> 'i t =
       fun ~into ~fields ~values ->
         I { table = into; fields; values }
@@ -891,23 +1007,23 @@ module Make (D : Driver) = struct
         | f::fs -> Field.name f ^ ", " ^ join_fields fs
 
     let expr_placeholders i vs =
-      let open Expr in
+      let open Lit in
       let rec eps
-        : type t a n. int -> (t, a, n) Expr.Vector.t -> string list =
+        : type t a n. int -> (t, a, n) Lit.Vector.t -> string list =
         fun i exprs ->
-          let open Expr.Vector in
+          let open Lit.Vector in
           match exprs with
           | [] -> []
           | _::es -> D.placeholder i :: eps (i+1) es in
       eps i vs
 
     let placeholders
-      : type a m. ('v, a, m, 'n) Expr.Vector.matrix -> string =
+      : type a m. ('v, a, m, 'n) Lit.Vector.matrix -> string =
       fun values ->
         let rec pss
-          : type a m. int -> ('v, a, m, 'n) Expr.Vector.matrix -> string =
+          : type a m. int -> ('v, a, m, 'n) Lit.Vector.matrix -> string =
           fun i vals ->
-            let open Expr.Vector in
+            let open Lit.Vector in
             match vals with
             | [] -> ""
             | v::vs ->
@@ -916,9 +1032,9 @@ module Make (D : Driver) = struct
                 sprintf "(%s)\n%s" (String.concat ", " ps) (pss n vs) in
         pss 1 values
 
-    let params_of_values : type a. (a, 'b, 'm, 'n) Expr.Vector.matrix -> Param.t list = fun values ->
-      Expr.Vector.matrix_fold_left
-        { Expr.Vector.f = fun acc e -> Expr.to_param e :: acc }
+    let params_of_values : type a. (a, 'b, 'm, 'n) Lit.Vector.matrix -> Param.t list = fun values ->
+      Lit.Vector.matrix_fold_left
+        { Lit.Vector.f = fun acc e -> Lit.to_param e :: acc }
         []
         values
 
