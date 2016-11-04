@@ -15,7 +15,7 @@ let print_params ps =
   print ps
 
 let () =
-  let%sql query, params = Mysql.(Select.(Expr.(Vector.(
+  let%sql query, params = Mysql.(Expr.(Select.(Expr.(Vector.(
     from Team.table
       |> left_join (belonging_to Team.owner)
       |> right_join (having_one Project.leader)
@@ -26,7 +26,7 @@ let () =
            ; field Team.name
            ; subquery (from User.table |> select [field User.name])
            ; field User.id + int 1
-           ; date_add (date ~year:2016 ~month:10 ~day:20) 30 Lit.Days
+           ; date_add (date ~year:2016 ~month:10 ~day:20) 30 Days
            ; if_ (length (field User.name) > int 10)
                (field User.name)
                (string "short")
@@ -39,7 +39,7 @@ let () =
       |> order_by [field User.name]
       |> limit 10
       |> seal
-  )))) in
+  ))))) in
   print_endline query;
   print_params params
 
@@ -65,7 +65,7 @@ let () =
 let () = print_endline "==="
 
 let () =
-  let query, params = Mysql.(Select.(
+  let query, params = Mysql.(Expr.(Select.(
     let src = from TeamUser.table in
     let src = left_join (belonging_to TeamUser.user There) src in
     let src = left_join (belonging_to TeamUser.team (Skip There)) src in
@@ -77,14 +77,14 @@ let () =
       where Expr.(field Team.name (Skip There) =% "foo%") sel in
     let stmt = order_by Expr.(Vector.[field Team.name (Skip There)]) stmt in
     seal stmt
-  )) in
+  ))) in
   print_endline query;
   print_params params
 
 let () = print_endline "==="
 
 let () =
-  let%sql query, params = Mysql.(Select.(
+  let%sql query, params = Mysql.(Expr.(Select.(
     let src = from Team.table in
     let src = inner_join (belonging_to Team.owner There) src in
     let src = inner_join (having_one Project.leader There) src in
@@ -94,14 +94,14 @@ let () =
     ]) src in
     let stmt = where Expr.(field Project.title There =% "P%") sel in
     seal stmt
-  )) in
+  ))) in
   print_endline query;
   print_params params
 
 let () = print_endline "==="
 
 let () =
-  let query, params = Mysql.(Select.(
+  let query, params = Mysql.(Expr.(Select.(
     let src = from User.table in
     let src = right_join (having_one Team.owner There) src in
     let src = right_join (having_one Project.leader (Skip There)) src in
@@ -115,7 +115,7 @@ let () =
     let stmt =
       where Expr.(field User.id (Skip (Skip There)) > int 42) sel in
     seal stmt
-  )) in
+  ))) in
   print_endline query;
   print_params params
 
@@ -146,3 +146,19 @@ let () =
   ))))) in
   print_endline query;
   print_params params
+
+let () = print_endline "==="
+
+let () =
+  let query, _ = Mysql.(Expr.(Update.(Vector.(Expr.(Vector.(
+    update User.table
+      ~set:
+        [ User.name, string "John Doe"
+        ; User.site, Null.string "johndoe.com"
+        ]
+    |> where (field User.name = string "john doe")
+    |> order_by [field User.name]
+    |> limit 10
+    |> seal
+  )))))) in
+  print_endline query
