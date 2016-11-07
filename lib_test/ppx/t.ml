@@ -142,7 +142,7 @@ let () =
         [int 1; string "a"; Null.string "a.com"];
         [int 2; string "b"; Null.string "b.com"];
       ]
-    |> build
+    |> seal
   ))))) in
   print_endline query;
   print_params params

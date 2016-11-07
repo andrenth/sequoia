@@ -937,7 +937,7 @@ module Make (D : Driver) = struct
         []
         values
 
-    let build (I { table; fields; values }) =
+    let seal (I { table; fields; values }) =
       let s =
         sprintf "INSERT INTO %s (%s) VALUES\n%s"
           (Table.to_string table)
