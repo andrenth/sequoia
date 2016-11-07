@@ -7,6 +7,7 @@ include (M : module type of M
   with module Expr   := M.Expr
    and module Select := M.Select
    and module Update := M.Update
+   and module Delete := M.Delete
    and module Field  := M.Field)
 
 module Expr = struct
@@ -177,6 +178,21 @@ module Update = struct
   let expr_build st e = Expr.build st e
 
   include M.Update
+
+  let seal stmt =
+    let rec handover
+      : type a. build_step -> a M.Expr.t -> build_step =
+      fun st e ->
+        let build st e =
+          Expr.build ~handover:{ M.Expr.handover = handover } st e in
+        expr_build ~handover:{ M.Expr.handover = build } st e in
+    seal ~handover:{ M.Expr.handover } stmt
+end
+
+module Delete = struct
+  let expr_build st e = Expr.build st e
+
+  include M.Delete
 
   let seal stmt =
     let rec handover

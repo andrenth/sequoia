@@ -946,34 +946,38 @@ module Make (D : Driver) = struct
       s, List.rev @@ params_of_values values
   end
 
+  module UpdateDeleteExpr = struct
+    type _ Expr.t +=
+      | Field : ('t, 'a) Field.t * 't Table.t -> 'a Expr.t
+      | Foreign : ('t, 'u) Field.foreign_key * 't Table.t -> 'a Expr.t
+
+    let field fld = fun table -> Field (fld, table)
+    let foreign_key fk = fun table -> Foreign (fk, table)
+
+    let rec build
+      : type a. handover:Expr.handover
+             -> build_step
+             -> a Expr.t
+             -> build_step =
+      fun ~handover st e ->
+        match e with
+        | Field (fld, _) ->
+            { repr = Field.to_string fld
+            ; params = []
+            ; pos = st.pos
+            }
+        | Foreign ((fld, _), _) ->
+            { repr = Field.to_string fld
+            ; params = []
+            ; pos = st.pos
+            }
+        | e ->
+            Expr.build ~handover st e
+  end
+
   module Update = struct
     module E = struct
-      type _ Expr.t +=
-        | Field : ('t, 'a) Field.t * 't Table.t -> 'a Expr.t
-        | Foreign : ('t, 'u) Field.foreign_key * 't Table.t -> 'a Expr.t
-
-      let field fld = fun table -> Field (fld, table)
-      let foreign_key fk = fun table -> Foreign (fk, table)
-
-      let rec build
-        : type a. handover:Expr.handover
-               -> build_step
-               -> a Expr.t
-               -> build_step =
-        fun ~handover st e ->
-          match e with
-          | Field (fld, _) ->
-              { repr = Field.to_string fld
-              ; params = []
-              ; pos = st.pos
-              }
-          | Foreign ((fld, _), _) ->
-              { repr = Field.to_string fld
-              ; params = []
-              ; pos = st.pos
-              }
-          | e ->
-              Expr.build ~handover st e
+      include UpdateDeleteExpr
 
       module Vec = Vector.Make(struct
         type ('t, 'a) elem = ('t, 'a) Expr.expr
@@ -1121,5 +1125,26 @@ module Make (D : Driver) = struct
       repr, params
 
     module Expr = E
+  end
+
+  module Delete = struct
+    type 't t =
+      | D : { table : 't Table.t; where : 'a Expr.t option } -> 't t
+
+    let delete ?where ~from =
+      let where =
+        match where with
+        | Some expr -> Some (expr from)
+        | None -> None in
+      D { table = from; where = where }
+
+    let seal ~handover (D { table; where }) =
+      let st = { blank_step with pos = 1 } in
+      let st = build_where ~handover st where in
+      let s = sprintf "DELETE FROM %s" (Table.to_string table) in
+      let repr = join_lines [ s; st.repr ] in
+      repr, st.params
+
+    module Expr = UpdateDeleteExpr
   end
 end
