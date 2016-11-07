@@ -1,6 +1,6 @@
 open Printf
 
-module D = struct let placeholder _ = "?" end
+module D = struct let placeholder i = "$"^string_of_int i end
 module M = Sequoia.Make (D)
 
 include (M : module type of M

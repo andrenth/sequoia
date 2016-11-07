@@ -1097,15 +1097,20 @@ module Make (D : Driver) = struct
           st
 
     let seal ~handover (U { table; updates; where; limit; order_by }) =
-      let updates_st = build_updates ~handover blank_step table updates in
+      let st = { blank_step with pos = 1 } in
+      let updates_st = build_updates ~handover st table updates in
       let where_st = build_where ~handover updates_st where in
-      let limit_st = build_limit where_st limit in
-      let order_by_st = build_order_by ~handover limit_st order_by in
+      let order_by_st = build_order_by ~handover where_st order_by in
+      let limit_st = build_limit order_by_st limit in
       let s =
         sprintf "UPDATE %s SET%s"
           (Table.to_string table)
           updates_st.repr
           in
+      let params = updates_st.params
+                 @ where_st.params
+                 @ order_by_st.params
+                 @ limit_st.params in
       let repr =
         join_lines
         [ s
@@ -1113,7 +1118,7 @@ module Make (D : Driver) = struct
         ; limit_st.repr
         ; order_by_st.repr
         ] in
-      repr, List.rev @@ []
+      repr, params
 
     module Expr = E
   end

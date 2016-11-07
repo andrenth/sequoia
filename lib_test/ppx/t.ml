@@ -150,7 +150,7 @@ let () =
 let () = print_endline "==="
 
 let () =
-  let query, _ = Mysql.(Expr.(Update.(Vector.(Expr.(Vector.(
+  let query, params = Mysql.(Expr.(Update.(Vector.(Expr.(Vector.(
     update User.table
       ~set:
         [ User.name, string "John Doe"
@@ -161,4 +161,5 @@ let () =
     |> limit 10
     |> seal
   )))))) in
-  print_endline query
+  print_endline query;
+  print_params params
