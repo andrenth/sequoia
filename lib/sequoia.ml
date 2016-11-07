@@ -559,7 +559,8 @@ module Make (D : Driver) = struct
                             -> ('s, 'a, 'n) Expr.Vector.t
     end
 
-    val select : ('s, 'a, 'n Nat.s) Expr.Vector.t -> 's source -> 's t
+    val select :
+      ?distinct:bool -> ('s, 'a, 'n Nat.s) Expr.Vector.t -> 's source -> 's t
 
     val from : 't Table.t -> ('t -> unit) source
     val left_join  : ('t1, 't2) Field.foreign_key *
@@ -717,6 +718,7 @@ module Make (D : Driver) = struct
       type _ t =
         | S :
             { source   : 's source
+            ; distinct : bool
             ; select   : ('a, _, 'n Nat.s) Expr.Vector.t
             ; where    : 'b Expr.t option
             ; group_by : 'c Expr.t option
@@ -732,6 +734,7 @@ module Make (D : Driver) = struct
       type _ t =
         | S :
             { source   : 's source
+            ; distinct : bool
             ; select   : ('a, _, 'n Nat.s) E.Vector.t
             ; where    : 'b Expr.t option
             ; group_by : 'c Expr.t option
@@ -763,19 +766,25 @@ module Make (D : Driver) = struct
         fst (join_exprs ~handover st exprs)
 
       let rec build_source
-        : type s. handover:E.handover
+        : type s. ?distinct:bool
+               -> handover:E.handover
                -> build_step
                -> ('a, _, 'n) E.Vector.t -> s source
                -> build_step =
-        fun ~handover st sel -> function
+        fun ?(distinct = false) ~handover st exprs -> function
           | From t ->
-              let st = build_select ~handover st sel in
-              { repr = sprintf "SELECT %s\nFROM %s" st.repr (Table.to_string t)
+              let repr =
+                sprintf "SELECT%s%s\nFROM %s"
+                  st.repr
+                  (if distinct then " DISTINCT " else "")
+                  (Table.to_string t) in
+              let st = build_select ~handover st exprs in
+              { repr
               ; params = st.params
               ; pos = st.pos
               }
           | Join (join, (a, b), src, _) ->
-              let st = build_source ~handover st sel src in
+              let st = build_source ~distinct ~handover st exprs src in
               let repr =
                 st.repr
                   ^ "\n"
@@ -811,7 +820,7 @@ module Make (D : Driver) = struct
       let seal : type s. handover:E.handover -> s t -> string * Param.t list =
         fun ~handover (S stmt) ->
           let st = { blank_step with pos = 1 } in
-          let src_st = build_source ~handover st stmt.select stmt.source in
+          let src_st = build_source ~distinct:stmt.distinct ~handover st stmt.select stmt.source in
           let where_st = build_where ~handover src_st stmt.where in
           let group_by_st = build_group_by ~handover where_st stmt.group_by in
           let order_by_st = build_order_by ~handover group_by_st stmt.order_by in
@@ -835,15 +844,21 @@ module Make (D : Driver) = struct
     include T
     module Expr = SelectExpr
 
-    let select : type s a. (s, a, 'n Nat.s) Expr.Vector.t -> s source -> s t = fun bl src ->
-      S
-        { source = src
-        ; select = Expr.vectormk_to_vector src bl
-        ; where = None
-        ; group_by = None
-        ; order_by = None
-        ; limit = None
-        }
+    let select
+      : type s a. ?distinct:bool
+     -> (s, a, 'n Nat.s) Expr.Vector.t
+     -> s source
+     -> s t =
+      fun ?(distinct = false) bl src ->
+        S
+          { source = src
+          ; distinct
+          ; select = Expr.vectormk_to_vector src bl
+          ; where = None
+          ; group_by = None
+          ; order_by = None
+          ; limit = None
+          }
 
     let from t =
       From t

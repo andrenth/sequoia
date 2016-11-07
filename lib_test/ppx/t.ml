@@ -51,7 +51,7 @@ let () =
       |> left_join (belonging_to TeamUser.team)
       |> right_join (belonging_to TeamUser.user)
       |> inner_join (having_one Project.leader)
-      |> select Expr.(Vector.
+      |> select ~distinct:true Expr.(Vector.
            [ field Team.name
            ; field User.name
            ])
@@ -70,7 +70,7 @@ let () =
     let src = left_join (belonging_to TeamUser.user There) src in
     let src = left_join (belonging_to TeamUser.team (Skip There)) src in
     let sel =
-      select Expr.(Vector.[
+      select ~distinct:true Expr.(Vector.[
         field User.name There; field Team.name (Skip There)
       ]) src in
     let stmt =

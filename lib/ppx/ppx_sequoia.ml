@@ -197,12 +197,25 @@ let rec map_query st loc = function
                Pexp_apply
                  (rel, snoc (Nolabel, steps) args) })]) }
 
-  (* select/order_by Expr.[...] *)
+  (* select *)
   | { pexp_desc =
       Pexp_apply (({ pexp_desc =
-                     Pexp_ident { txt = Lident lid; loc } } as select), [lbl, args]) } as e
-      when lid = "select"
-        || lid = "order_by" ->
+                     Pexp_ident { txt = Lident "select"; loc } } as select), [lbl, args]) } as e ->
+      { e with pexp_desc =
+               Pexp_apply (select, [lbl, map_expr_list loc (map_select st) args]) }
+
+  (* select ~distinct:... *)
+  | { pexp_desc =
+      Pexp_apply (({ pexp_desc =
+                     Pexp_ident { txt = Lident "select"; loc } } as select),
+                     [(Labelled "distinct", _) as dist; lbl, args]) } as e ->
+      { e with pexp_desc =
+               Pexp_apply (select, [dist; lbl, map_expr_list loc (map_select st) args]) }
+
+  (* order_by Expr.[...] *)
+  | { pexp_desc =
+      Pexp_apply (({ pexp_desc =
+                     Pexp_ident { txt = Lident "order_by"; loc } } as select), [lbl, args]) } as e ->
       { e with pexp_desc =
                Pexp_apply (select, [lbl, map_expr_list loc (map_select st) args]) }
 
