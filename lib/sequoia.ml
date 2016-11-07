@@ -590,7 +590,7 @@ module Make (D : Driver) = struct
                     -> ('t2, 't1) Field.foreign_key *
                        ('s1, 't2, 't1, 's2) join_steps
 
-    val where : ('a source -> 'b Expr.t) -> 'a t -> 'a t
+    val where : ('a source -> bool Expr.t) -> 'a t -> 'a t
     val group_by : ('s source -> 'a Expr.t) -> 's t -> 's t
     val order_by : ('s, 'a, 'n Nat.s) Expr.Vector.t -> 's t -> 's t
     val limit : ?offset:int -> int -> 'a t -> 'a t
