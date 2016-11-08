@@ -36,6 +36,7 @@ let () =
            ; field User.id =? [int 1; int 2; int 3]
            ]
       |> where (field User.name =% "foo%" && is_not_null (field User.site))
+      |> group_by (field User.name) ~having:(length (field User.name) > int 5)
       |> order_by [field User.name]
       |> limit 10
       |> seal

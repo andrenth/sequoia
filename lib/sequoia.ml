@@ -591,7 +591,8 @@ module Make (D : Driver) = struct
                        ('s1, 't2, 't1, 's2) join_steps
 
     val where : ('a source -> bool Expr.t) -> 'a t -> 'a t
-    val group_by : ('s source -> 'a Expr.t) -> 's t -> 's t
+    val group_by : ?having:('s source -> bool Expr.t)
+                -> ('s source -> 'a Expr.t) -> 's t -> 's t
     val order_by : ('s, 'a, 'n Nat.s) Expr.Vector.t -> 's t -> 's t
     val limit : ?offset:int -> int -> 'a t -> 'a t
 
@@ -721,7 +722,7 @@ module Make (D : Driver) = struct
             ; distinct : bool
             ; select   : ('a, _, 'n Nat.s) Expr.Vector.t
             ; where    : 'b Expr.t option
-            ; group_by : 'c Expr.t option
+            ; group_by : ('c Expr.t * bool Expr.t option) option
             ; order_by : ('d, _, 'm Nat.s) Expr.Vector.t option
             ; limit    : (int * int) option
             } -> 's t
@@ -737,7 +738,7 @@ module Make (D : Driver) = struct
             ; distinct : bool
             ; select   : ('a, _, 'n Nat.s) E.Vector.t
             ; where    : 'b Expr.t option
-            ; group_by : 'c Expr.t option
+            ; group_by : ('c Expr.t * bool Expr.t option) option
             ; order_by : ('d, _, 'm Nat.s) E.Vector.t option
             ; limit    : (int * int) option
             } -> 's t
@@ -801,12 +802,19 @@ module Make (D : Driver) = struct
       let build_group_by
         : type a. handover:E.handover
                -> build_step
-               -> a Expr.t option
+               -> (a Expr.t * bool Expr.t option) option
                -> build_step =
         fun ~handover st -> function
-          | Some expr ->
+          | Some (expr, having) ->
               let st = Expr.build ~handover st expr in
-              { st with repr = sprintf "GROUP BY (%s)" st.repr }
+              let repr =  sprintf "GROUP BY (%s)" st.repr in
+              begin match having with
+              | Some expr ->
+                  let st' = Expr.build ~handover st expr in
+                  { st' with repr = sprintf "%s HAVING (%s)" repr st'.repr }
+              | None ->
+                { st with repr = sprintf "GROUP BY (%s)" st.repr }
+              end
           | None ->
               { blank_step with pos = st.pos }
 
@@ -877,8 +885,12 @@ module Make (D : Driver) = struct
     let where expr (S stmt) =
       S { stmt with where = Some (expr stmt.source) }
 
-    let group_by expr (S stmt) =
-      S { stmt with group_by = Some (expr stmt.source) }
+    let group_by ?having expr (S stmt) =
+      let having =
+        match having with
+        | Some f -> Some (f stmt.source)
+        | None -> None in
+      S { stmt with group_by = Some (expr stmt.source, having) }
 
     let order_by
       : type a s n. (s, a, n Nat.s) Expr.Vector.t -> s t -> s t =
