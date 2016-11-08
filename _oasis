@@ -72,3 +72,12 @@ Executable "ppx_test"
   BuildTools:       ppx_sequoia
   BuildDepends:     sequoia, sequoia.mysql
   CompiledObject:   best
+
+Executable "readme_test"
+  Build$:           flag(ppx)
+  Install:          false
+  Path:             lib_test/ppx
+  MainIs:           readme.ml
+  BuildTools:       ppx_sequoia
+  BuildDepends:     sequoia, sequoia.mysql
+  CompiledObject:   best
