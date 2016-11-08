@@ -826,7 +826,7 @@ module Make (D : Driver) = struct
       let build_order_by ~handover st = function
         | Some exprs ->
             let st = fst (join_exprs ~handover st exprs) in
-            { st with repr = "ORDER BY " ^ st.repr }
+            { st with repr = sprintf "ORDER BY (%s)" st.repr }
         | None ->
             st
 
