@@ -778,12 +778,12 @@ module Make (D : Driver) = struct
                -> build_step =
         fun ?(distinct = false) ~handover st exprs -> function
           | From t ->
+              let st = build_select ~handover st exprs in
               let repr =
                 sprintf "SELECT%s%s\nFROM %s"
+                  (if distinct then " DISTINCT " else " ")
                   st.repr
-                  (if distinct then " DISTINCT " else "")
                   (Table.to_string t) in
-              let st = build_select ~handover st exprs in
               { repr
               ; params = st.params
               ; pos = st.pos
