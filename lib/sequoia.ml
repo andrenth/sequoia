@@ -415,6 +415,8 @@ module Make (D : Driver) = struct
     let float table name = Float (name, table)
     let string table name = String (name, table)
     let blob table name = Blob (name, table)
+
+    module Vector = Vector.Make(struct type ('t, 'a) elem = ('t, 'a) t end)
   end
 
   module type TABLE = sig
@@ -592,7 +594,9 @@ module Make (D : Driver) = struct
 
     val where : ('a source -> bool Expr.t) -> 'a t -> 'a t
     val group_by : ?having:('s source -> bool Expr.t)
-                -> ('s source -> 'a Expr.t) -> 's t -> 's t
+                -> ('s, 'a, 'n Nat.s) Expr.Vector.t
+                -> 's t
+                -> 's t
     val order_by : ('s, 'a, 'n Nat.s) Expr.Vector.t -> 's t -> 's t
     val limit : ?offset:int -> int -> 'a t -> 'a t
 
@@ -722,8 +726,8 @@ module Make (D : Driver) = struct
             ; distinct : bool
             ; select   : ('a, _, 'n Nat.s) Expr.Vector.t
             ; where    : 'b Expr.t option
-            ; group_by : ('c Expr.t * bool Expr.t option) option
-            ; order_by : ('d, _, 'm Nat.s) Expr.Vector.t option
+            ; group_by : (('c, _, 'm Nat.s) Expr.Vector.t * bool Expr.t option) option
+            ; order_by : ('d, _, 'k Nat.s) Expr.Vector.t option
             ; limit    : (int * int) option
             } -> 's t
 
@@ -738,8 +742,8 @@ module Make (D : Driver) = struct
             ; distinct : bool
             ; select   : ('a, _, 'n Nat.s) E.Vector.t
             ; where    : 'b Expr.t option
-            ; group_by : ('c Expr.t * bool Expr.t option) option
-            ; order_by : ('d, _, 'm Nat.s) E.Vector.t option
+            ; group_by : (('c, _, 'm Nat.s) E.Vector.t * bool Expr.t option) option
+            ; order_by : ('d, _, 'k Nat.s) E.Vector.t option
             ; limit    : (int * int) option
             } -> 's t
 
@@ -800,18 +804,19 @@ module Make (D : Driver) = struct
               }
 
       let build_group_by
-        : type a. handover:E.handover
+        : type t a n. handover:E.handover
                -> build_step
-               -> (a Expr.t * bool Expr.t option) option
+               -> ((t, a , n Nat.s) E.Vector.t * bool Expr.t option) option
                -> build_step =
         fun ~handover st -> function
-          | Some (expr, having) ->
-              let st = Expr.build ~handover st expr in
-              let repr =  sprintf "GROUP BY (%s)" st.repr in
+          | Some (flds, having) ->
+              let st = fst (join_exprs ~handover st flds) in
               begin match having with
               | Some expr ->
                   let st' = Expr.build ~handover st expr in
-                  { st' with repr = sprintf "%s HAVING (%s)" repr st'.repr }
+                  let repr =
+                    sprintf "GROUP BY (%s) HAVING (%s)" st.repr st'.repr in
+                  { st' with repr }
               | None ->
                 { st with repr = sprintf "GROUP BY (%s)" st.repr }
               end
@@ -885,12 +890,18 @@ module Make (D : Driver) = struct
     let where expr (S stmt) =
       S { stmt with where = Some (expr stmt.source) }
 
-    let group_by ?having expr (S stmt) =
-      let having =
-        match having with
-        | Some f -> Some (f stmt.source)
-        | None -> None in
-      S { stmt with group_by = Some (expr stmt.source, having) }
+    let group_by
+      : type a s n. ?having:(s source -> bool Expr.t)
+                 -> (s, a, n Nat.s) Expr.Vector.t
+                 -> s t
+                 -> s t =
+      fun ?having flds (S stmt) ->
+        let flds = Expr.vectormk_to_vector stmt.source flds in
+        let having =
+          match having with
+          | Some f -> Some (f stmt.source)
+          | None -> None in
+        S { stmt with group_by = Some (flds, having) }
 
     let order_by
       : type a s n. (s, a, n Nat.s) Expr.Vector.t -> s t -> s t =
@@ -1106,19 +1117,19 @@ module Make (D : Driver) = struct
         updates
 
     let join_exprs ~handover st =
-     E.Vec.vector_fold_left
-       { E.Vec.f = fun (st, i) e ->
-         let st' = E.build ~handover st e in
-         if i = 0 then
-           (st', 1)
-         else
-           let st =
-             { repr = st.repr ^ ", " ^ st'.repr
-             ; params = st.params @ st'.params
-             ; pos = st'.pos
-             } in
-           (st, i + 1) }
-       ({ blank_step with pos = st.pos }, 0)
+      E.Vec.vector_fold_left
+        { E.Vec.f = fun (st, i) e ->
+          let st' = E.build ~handover st e in
+          if i = 0 then
+            (st', 1)
+          else
+            let st =
+              { repr = st.repr ^ ", " ^ st'.repr
+              ; params = st.params @ st'.params
+              ; pos = st'.pos
+              } in
+            (st, i + 1) }
+        ({ blank_step with pos = st.pos }, 0)
 
     let build_order_by ~handover st = function
       | Some exprs ->

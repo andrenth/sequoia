@@ -15,7 +15,7 @@ let print_params ps =
   print ps
 
 let () =
-  let%sql query, params = Mysql.(Expr.(Select.(Expr.(Vector.(
+  let%sql query, params = Mysql.(Field.Vector.(Expr.(Select.(Expr.(Vector.(
     from Team.table
       |> left_join (belonging_to Team.owner)
       |> right_join (having_one Project.leader)
@@ -36,11 +36,12 @@ let () =
            ; field User.id =? [int 1; int 2; int 3]
            ]
       |> where (field User.name =% "foo%" && is_not_null (field User.site))
-      |> group_by (field User.name) ~having:(length (field User.name) > int 5)
+      |> group_by [field User.name; field Team.id]
+           ~having:(length (field User.name) > int 5)
       |> order_by [field User.name]
       |> limit 10
       |> seal
-  ))))) in
+  )))))) in
   print_endline query;
   print_params params
 

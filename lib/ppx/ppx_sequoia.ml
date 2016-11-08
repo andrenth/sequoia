@@ -212,12 +212,43 @@ let rec map_query st loc = function
       { e with pexp_desc =
                Pexp_apply (select, [dist; lbl, map_expr_list loc (map_select st) args]) }
 
+  (* group_by Expr.[...] *)
+  | { pexp_desc =
+      Pexp_apply (({ pexp_desc =
+                     Pexp_ident { txt = Lident "group_by"; loc } } as gb), [lbl, args]) } as e ->
+      { e with pexp_desc =
+               Pexp_apply (gb, [lbl, map_expr_list loc (map_select st) args]) }
+
+  (* group_by Expr.[...] ~having:... *)
+  | { pexp_desc =
+      Pexp_apply (({ pexp_desc =
+                     Pexp_ident { txt = Lident "group_by"; loc } } as gb),
+                  [(lbl, args); (Labelled "having", hav)]) } as e ->
+      { e with pexp_desc =
+               Pexp_apply
+                 (gb,
+                  [ lbl, map_expr_list loc (map_select st) args
+                  ; Labelled "having", map_select st loc hav
+                  ]) }
+
+  (* group_by ~having:... Expr.[...] *)
+  | { pexp_desc =
+      Pexp_apply (({ pexp_desc =
+                     Pexp_ident { txt = Lident "group_by"; loc } } as gb),
+                  [(Labelled "having", hav); (lbl, args)]) } as e ->
+      { e with pexp_desc =
+               Pexp_apply
+                 (gb,
+                  [ Labelled "having", map_select st loc hav
+                  ; lbl, map_expr_list loc (map_select st) args
+                  ]) }
+
   (* order_by Expr.[...] *)
   | { pexp_desc =
       Pexp_apply (({ pexp_desc =
-                     Pexp_ident { txt = Lident "order_by"; loc } } as select), [lbl, args]) } as e ->
+                     Pexp_ident { txt = Lident "order_by"; loc } } as ob), [lbl, args]) } as e ->
       { e with pexp_desc =
-               Pexp_apply (select, [lbl, map_expr_list loc (map_select st) args]) }
+               Pexp_apply (ob, [lbl, map_expr_list loc (map_select st) args]) }
 
   (* field Table.field XXX *)
   | { pexp_desc =
