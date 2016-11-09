@@ -1,10 +1,12 @@
 open Printf
+open Sequoia_common
 
 module D = struct let placeholder _ = "?" end
 module M = Sequoia.Make (D)
 
 include (M : module type of M
-  with module Expr   := M.Expr
+  with module Lit    := M.Lit
+   and module Expr   := M.Expr
    and module Select := M.Select
    and module Update := M.Update
    and module Delete := M.Delete
@@ -101,7 +103,8 @@ module Expr = struct
   let rec build
     : type a. handover:handover -> build_step -> a t -> build_step =
     fun ~handover st e ->
-      let fn ?(st = st) = M.Expr.build_function ~handover st in
+      let fn ?(st = st) =
+        M.Expr.build_function ~placeholder:D.placeholder ~handover st in
       match e with
       (* Core functions *)
       | Abs e -> fn "ABS(" [e] ")"
@@ -184,7 +187,9 @@ module Update = struct
       : type a. build_step -> a M.Expr.t -> build_step =
       fun st e ->
         let build st e =
-          Expr.build ~handover:{ M.Expr.handover = handover } st e in
+          Expr.build
+            ~placeholder:D.placeholder
+            ~handover:{ M.Expr.handover = handover } st e in
         expr_build ~handover:{ M.Expr.handover = build } st e in
     seal ~handover:{ M.Expr.handover } stmt
 end
@@ -199,7 +204,9 @@ module Delete = struct
       : type a. build_step -> a M.Expr.t -> build_step =
       fun st e ->
         let build st e =
-          Expr.build ~handover:{ M.Expr.handover = handover } st e in
+          Expr.build
+            ~placeholder:D.placeholder
+            ~handover:{ M.Expr.handover = handover } st e in
         expr_build ~handover:{ M.Expr.handover = build } st e in
     seal ~handover:{ M.Expr.handover } stmt
 end

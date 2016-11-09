@@ -15,7 +15,7 @@ let print_params ps =
   print ps
 
 let () =
-  let%sql query, params = Mysql.(Field.Vector.(Expr.(Select.(Expr.(Vector.(
+  let%sql query, params = Mysql.(Expr.(Select.(Expr.(Vector.(
     from Team.table
       |> left_join (belonging_to Team.owner)
       |> right_join (having_one Project.leader)
@@ -41,7 +41,7 @@ let () =
       |> order_by [field User.name]
       |> limit 10
       |> seal
-  )))))) in
+  ))))) in
   print_endline query;
   print_params params
 

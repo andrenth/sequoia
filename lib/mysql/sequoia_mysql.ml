@@ -1,4 +1,5 @@
 open Printf
+open Sequoia_common
 
 module D = struct let placeholder _ = "?" end
 module M = Sequoia.Make (D)
@@ -31,16 +32,6 @@ let base_time =
   ; minute = 0
   ; second = 0
   }
-
-module Param = struct
-  include M.Param
-
-  type t +=
-    | Time of [`Time] time
-    | Timestamp of [`Timestamp] time
-    | Date of [`Date] time
-    | Datetime of [`Datetime] time
-end
 
 module Field = struct
   include (M.Field : module type of M.Field
@@ -104,6 +95,16 @@ let string_of_time_unit = function
   | Quarters -> "QUARTER"
   | Years -> "YEAR"
 
+module Param = struct
+  include M.Param
+
+  type t +=
+    | Time of [`Time] time
+    | Timestamp of [`Timestamp] time
+    | Date of [`Date] time
+    | Datetime of [`Datetime] time
+end
+
 module Lit = struct
   include M.Lit
 
@@ -114,12 +115,14 @@ module Lit = struct
     | Datetime : [`Datetime] time -> [`Datetime] time t
 
   let build : type a. build_step -> a t -> build_step =
-    fun st -> function
-    | Time t -> build_param st (Param.Time t)
-    | Timestamp t -> build_param st (Param.Timestamp t)
-    | Date d -> build_param st (Param.Date d)
-    | Datetime d -> build_param st (Param.Datetime d)
-    | lit -> build st lit
+    fun st lit ->
+      let build_param = build_param D.placeholder in
+      match lit with
+      | Time t -> build_param st (Param.Time t)
+      | Timestamp t -> build_param st (Param.Timestamp t)
+      | Date d -> build_param st (Param.Date d)
+      | Datetime d -> build_param st (Param.Datetime d)
+      | lit -> build ~placeholder:D.placeholder st lit
 end
 
 module Expr = struct
@@ -354,14 +357,16 @@ module Expr = struct
   let rec build
     : type a. handover:handover -> build_step -> a t -> build_step =
     fun ~handover st e ->
-      let fn ?(st = st) = M.Expr.build_function ~handover st in
+      let build_param = build_param D.placeholder in
+      let fn ?(st = st) =
+        M.Expr.build_function ~placeholder:D.placeholder ~handover st in
       let open Base in
       match e with
       (* Data types *)
-      | Lit (Lit.Time t) -> Lit.build_param st (Param.Time t)
-      | Lit (Lit.Timestamp t) -> Lit.build_param st (Param.Timestamp t)
-      | Lit (Lit.Date d) -> Lit.build_param st (Param.Date d)
-      | Lit (Lit.Datetime d) -> Lit.build_param st (Param.Datetime d)
+      | Lit (Lit.Time t) -> build_param st (Param.Time t)
+      | Lit (Lit.Timestamp t) -> build_param st (Param.Timestamp t)
+      | Lit (Lit.Date d) -> build_param st (Param.Date d)
+      | Lit (Lit.Datetime d) -> build_param st (Param.Datetime d)
       (* Functions *)
       | Abs e -> fn "ABS(" [e] ")"
       | Acos e -> fn "ACOS(" [e] ")"
@@ -517,7 +522,9 @@ module Update = struct
       : type a. build_step -> a M.Expr.t -> build_step =
       fun st e ->
         let build st e =
-          Expr.build ~handover:{ M.Expr.handover = handover } st e in
+          Expr.build
+            ~placeholder:D.placeholder
+            ~handover:{ M.Expr.handover = handover } st e in
         expr_build ~handover:{ M.Expr.handover = build } st e in
     seal ~handover:{ M.Expr.handover } stmt
 end
@@ -532,7 +539,9 @@ module Delete = struct
       : type a. build_step -> a M.Expr.t -> build_step =
       fun st e ->
         let build st e =
-          Expr.build ~handover:{ M.Expr.handover = handover } st e in
+          Expr.build
+            ~placeholder:D.placeholder
+            ~handover:{ M.Expr.handover = handover } st e in
         expr_build ~handover:{ M.Expr.handover = build } st e in
     seal ~handover:{ M.Expr.handover } stmt
 end

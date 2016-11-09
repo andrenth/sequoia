@@ -1,4 +1,17 @@
 # OASIS_START
-# DO NOT EDIT (digest: eb583145426b1a2fa9cc9fbc395ebf24)
+# DO NOT EDIT (digest: 8788d42c056db2690a96c40888afb903)
 Sequoia
+Sequoia_common
+Sequoia_delete
+Sequoia_driver
+Sequoia_expr
+Sequoia_field
+Sequoia_insert
+Sequoia_lit
+Sequoia_param
+Sequoia_query_common
+Sequoia_select
+Sequoia_table
+Sequoia_update
+Sequoia_vector
 # OASIS_STOP
