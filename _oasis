@@ -36,7 +36,7 @@ Library "sequoia_mysql"
   Install$:         flag(mysql)
   FindlibParent:    sequoia
   FindlibName:      mysql
-  Path:             lib/mysql
+  Path:             lib/drivers/mysql
   BuildDepends:     sequoia,
                     unix
   Modules:          Sequoia_mysql
@@ -50,7 +50,7 @@ Library "sequoia_sqlite"
   Install$:         flag(sqlite)
   FindlibParent:    sequoia
   FindlibName:      sqlite
-  Path:             lib/sqlite
+  Path:             lib/drivers/sqlite
   BuildDepends:     sequoia
   Modules:          Sequoia_sqlite
 

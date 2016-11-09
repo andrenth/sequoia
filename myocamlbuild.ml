@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 3e8796b61e71498163f648b936202dc9) *)
+(* DO NOT EDIT (digest: f55b6e169c371e65a20de2a43e258520) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -885,17 +885,17 @@ let package_default =
      MyOCamlbuildBase.lib_ocaml =
        [
           ("sequoia", ["lib"], []);
-          ("sequoia_mysql", ["lib/mysql"], []);
-          ("sequoia_sqlite", ["lib/sqlite"], []);
+          ("sequoia_mysql", ["lib/drivers/mysql"], []);
+          ("sequoia_sqlite", ["lib/drivers/sqlite"], []);
           ("sequoia_ppx", ["lib/ppx"], [])
        ];
      lib_c = [];
      flags = [];
      includes =
        [
-          ("lib_test/ppx", ["lib"; "lib/mysql"]);
-          ("lib/sqlite", ["lib"]);
-          ("lib/mysql", ["lib"])
+          ("lib_test/ppx", ["lib"; "lib/drivers/mysql"]);
+          ("lib/drivers/sqlite", ["lib"]);
+          ("lib/drivers/mysql", ["lib"])
        ]
   }
   ;;
