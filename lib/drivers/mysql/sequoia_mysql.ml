@@ -129,6 +129,19 @@ module Expr = struct
   include M.Expr
   include Base
 
+  type 'a cast +=
+    | Time : [`Time] time cast
+    | Timestamp : [`Timestamp] time cast
+    | Date : [`Date] time cast
+    | Datetime : [`Datetime] time cast
+
+  let string_of_cast : type a. a cast -> string = function
+    | Time -> "TIME"
+    | Timestamp -> "TIMESTAMP"
+    | Date -> "DATE"
+    | Datetime -> "DATETIME"
+    | c -> string_of_cast c
+
   type 'a t +=
     | Abs : int t -> int t
     | Acos : float t -> float t
@@ -354,6 +367,11 @@ module Expr = struct
   let upper f = fun src -> Upper (f src)
   let year () = fun src -> Year
 
+  let as_time f = fun src -> Cast (f src, Time)
+  let as_timestamp f = fun src -> Cast (f src, Timestamp)
+  let as_date f = fun src -> Cast (f src, Date)
+  let as_datetime f = fun src -> Cast (f src, Datetime)
+
   let rec build
     : type a. handover:handover -> build_step -> a t -> build_step =
     fun ~handover st e ->
@@ -478,7 +496,15 @@ module Expr = struct
       | TimeFn e -> fn "TIME(" [e] ")"
       | Trim e -> fn "TRIM(" [e] ")"
       | Uncompress e -> fn "UNCOMPRESS(" [e] ")"
-      | e -> handover.handover st e
+      | Cast (e, Time) ->
+          fn "CAST(" [e] (sprintf " AS %s)" (string_of_cast Time))
+      | Cast (e, Timestamp) ->
+          fn "CAST(" [e] (sprintf " AS %s)" (string_of_cast Timestamp))
+      | Cast (e, Date) ->
+          fn "CAST(" [e] (sprintf " AS %s)" (string_of_cast Date))
+      | Cast (e, Datetime) ->
+          fn "CAST(" [e] (sprintf " AS %s)" (string_of_cast Datetime))
+      | e -> handover.expr st e
 end
 
 module Select = struct
@@ -486,6 +512,7 @@ module Select = struct
     with module Expr := M.Select.Expr)
 
   let expr_build st e = Expr.build st e
+  let cast_handover = Expr.string_of_cast
 
   module Expr = struct
     include M.Select.Expr
@@ -503,45 +530,57 @@ module Select = struct
   end
 
   let seal stmt =
-    let rec handover
+    let rec expr_handover
       : type a. build_step -> a M.Expr.t -> build_step =
       fun st e ->
         let build st e =
-          Expr.build ~handover:{ M.Expr.handover = handover } st e in
-        expr_build ~handover:{ M.Expr.handover = build } st e in
-    seal ~handover:{ M.Expr.handover } stmt
+          Expr.build
+            ~handover:{ M.Expr.expr = expr_handover; cast = cast_handover }
+            st
+            e in
+        expr_build
+          ~handover:{ M.Expr.expr = build; cast = cast_handover } st e in
+    seal ~handover:{ M.Expr.expr = expr_handover; cast = cast_handover } stmt
 end
 
 module Update = struct
   let expr_build st e = Expr.build st e
+  let cast_handover = Expr.string_of_cast
 
   include M.Update
 
   let seal stmt =
-    let rec handover
+    let rec expr_handover
       : type a. build_step -> a M.Expr.t -> build_step =
       fun st e ->
         let build st e =
           Expr.build
             ~placeholder:D.placeholder
-            ~handover:{ M.Expr.handover = handover } st e in
-        expr_build ~handover:{ M.Expr.handover = build } st e in
-    seal ~handover:{ M.Expr.handover } stmt
+            ~handover:{ M.Expr.expr = expr_handover; cast = cast_handover }
+            st
+            e in
+        expr_build
+          ~handover:{ M.Expr.expr = build; cast = cast_handover } st e in
+    seal ~handover:{ M.Expr.expr = expr_handover; cast = cast_handover } stmt
 end
 
 module Delete = struct
   let expr_build st e = Expr.build st e
+  let cast_handover = Expr.string_of_cast
 
   include M.Delete
 
   let seal stmt =
-    let rec handover
+    let rec expr_handover
       : type a. build_step -> a M.Expr.t -> build_step =
       fun st e ->
         let build st e =
           Expr.build
             ~placeholder:D.placeholder
-            ~handover:{ M.Expr.handover = handover } st e in
-        expr_build ~handover:{ M.Expr.handover = build } st e in
-    seal ~handover:{ M.Expr.handover } stmt
+            ~handover:{ M.Expr.expr = expr_handover; cast = cast_handover }
+            st
+            e in
+        expr_build
+          ~handover:{ M.Expr.expr = build; cast = cast_handover } st e in
+    seal ~handover:{ M.Expr.expr = expr_handover; cast = cast_handover } stmt
 end

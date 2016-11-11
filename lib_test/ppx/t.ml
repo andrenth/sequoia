@@ -22,7 +22,7 @@ let () =
       |> select
            [ field User.id
            ; field User.name
-           ; field Team.id
+           ; as_bool (field Team.id)
            ; field Team.name
            ; subquery (from User.table |> select [field User.name])
            ; field User.id + int 1

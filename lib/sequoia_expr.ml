@@ -6,8 +6,16 @@ module Lit    = Sequoia_lit
 module Param  = Sequoia_param
 
 type 'a t = ..
+type 'a cast = ..
 
 module Base = struct
+  type 'a cast +=
+    | Bool : bool cast
+    | Int : int cast
+    | Float : float cast
+    | String : string cast
+    | Blob : bytes cast
+
   type 'a t +=
     | Lit : 'a Lit.t -> 'a t
     | Eq : 'a t * 'a t -> bool t
@@ -34,6 +42,7 @@ module Base = struct
     | FDiv : float t * float t -> float t
     | LShift : int t * int -> int t
     | RShift : int t * int -> int t
+    | Cast : 'a t * 'b cast -> 'b t
 
   let (=)    f g = fun x -> Eq (f x, g x)
   let (=%)   f s = fun x -> Like (f x, s)
@@ -67,6 +76,12 @@ module Base = struct
   let string s = fun _ -> Lit (Lit.string s)
   let blob b = fun _ -> Lit (Lit.blob b)
 
+  let as_bool   f = fun x -> Cast (f x, Bool)
+  let as_int    f = fun x -> Cast (f x, Int)
+  let as_float  f = fun x -> Cast (f x, Float)
+  let as_string f = fun x -> Cast (f x, String)
+  let as_blob   f = fun x -> Cast (f x, Blob)
+
   module Null = struct
     let bool b = fun _ -> Lit (Lit.Null.bool b)
     let int i = fun _ -> Lit (Lit.Null.int i)
@@ -76,8 +91,19 @@ module Base = struct
   end
 end
 
+let string_of_cast : type a. ?handover:(a cast -> string) -> a cast -> string =
+  fun ?(handover = fun _ -> assert false) -> function
+    | Base.Bool -> "BOOLEAN"
+    | Base.Int -> "INTEGER"
+    | Base.Float -> "FLOAT"
+    | Base.String -> "CHAR"
+    | Base.Blob -> "BLOB"
+    | cast -> handover cast
+
 type handover =
-  { handover : 'a. build_step -> 'a t -> build_step }
+  { expr : 'a. build_step -> 'a t -> build_step
+  ; cast : 'b. 'b cast -> string
+  }
 
 let rec build
   : type a. placeholder:(int -> string)
@@ -158,8 +184,12 @@ let rec build
         build_function st "" [e] " IS NOT NULL"
     | Base.Is_null e ->
         build_function st "" [e] " IS NULL"
+    | Base.Cast (e, c) ->
+        let handover = handover.cast in
+        let suff = sprintf " AS %s)" (string_of_cast ~handover c) in
+        build_function st "CAST(" [e] suff
     | e ->
-        handover.handover st e
+        handover.expr st e
 
 and build_binop
   : type a b. placeholder:(int -> string) -> handover:handover -> build_step

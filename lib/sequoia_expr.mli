@@ -1,6 +1,14 @@
 type 'a t = ..
+type 'a cast = ..
 
 module Base : sig
+  type 'a cast +=
+    | Bool : bool cast
+    | Int : int cast
+    | Float : float cast
+    | String : string cast
+    | Blob : bytes cast
+
   type 'a t +=
     | Lit : 'a Sequoia_lit.t -> 'a t
     | Eq : 'a t * 'a t -> bool t
@@ -27,6 +35,7 @@ module Base : sig
     | FDiv : float t * float t -> float t
     | LShift : int t * int -> int t
     | RShift : int t * int -> int t
+    | Cast : 'a t * 'b cast -> 'b t
 
   val (=)    : ('a -> 'b t) -> ('a -> 'b t) -> 'a -> bool t
   val (=%)   : ('a -> string t) -> string -> 'a -> bool t
@@ -60,6 +69,12 @@ module Base : sig
   val string : string -> 'a -> string t
   val blob   : bytes -> 'a -> bytes t
 
+  val as_bool   : ('a -> 'b t) -> 'a -> bool t
+  val as_int    : ('a -> 'b t) -> 'a -> int t
+  val as_float  : ('a -> 'b t) -> 'a -> float t
+  val as_string : ('a -> 'b t) -> 'a -> string t
+  val as_blob   : ('a -> 'b t) -> 'a -> bytes t
+
   module Null : sig
     val bool   : bool -> 'a -> bool option t
     val int    : int -> 'a -> int option t
@@ -70,9 +85,9 @@ module Base : sig
 end
 
 type handover =
-  { handover : 'a. Sequoia_common.build_step
-            -> 'a t
-            -> Sequoia_common.build_step }
+  { expr : 'a. Sequoia_common.build_step -> 'a t -> Sequoia_common.build_step
+  ; cast : 'b. 'b cast -> string
+  }
 
 val build : placeholder:(int -> string)
          -> handover:handover
@@ -86,6 +101,8 @@ val build_function : placeholder:(int -> string)
                   -> 'a t list
                   -> string
                   -> Sequoia_common.build_step
+
+val string_of_cast : ?handover:('a cast -> string) -> 'a cast -> string
 
 type ('a, 'b) expr = 'b t
 

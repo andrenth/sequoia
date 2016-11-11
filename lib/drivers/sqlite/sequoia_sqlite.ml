@@ -159,54 +159,67 @@ module Expr = struct
       | Sum e -> fn "SUM(" [e] ")"
       | Total e -> fn "TOTAL(" [e] ")"
       (* Handover to other expressions *)
-      | e -> handover.handover st e
+      | e -> handover.expr st e
 end
 
 module Select = struct
   let expr_build st e = Expr.build st e
+  let cast_handover = Expr.string_of_cast
 
   include M.Select
 
   let seal stmt =
-    let rec handover
+    let rec expr_handover
       : type a. build_step -> a M.Expr.t -> build_step =
       fun st e ->
         let build st e =
-          Expr.build ~handover:{ M.Expr.handover = handover } st e in
-        expr_build ~handover:{ M.Expr.handover = build } st e in
-    seal ~handover:{ M.Expr.handover } stmt
+          Expr.build
+            ~handover:{ M.Expr.expr = expr_handover; cast = cast_handover }
+            st
+            e in
+        expr_build
+          ~handover:{ M.Expr.expr = build; cast = cast_handover } st e in
+    seal ~handover:{ M.Expr.expr = expr_handover; cast = cast_handover } stmt
 end
 
 module Update = struct
   let expr_build st e = Expr.build st e
+  let cast_handover = Expr.string_of_cast
 
   include M.Update
 
   let seal stmt =
-    let rec handover
+    let rec expr_handover
       : type a. build_step -> a M.Expr.t -> build_step =
       fun st e ->
         let build st e =
           Expr.build
             ~placeholder:D.placeholder
-            ~handover:{ M.Expr.handover = handover } st e in
-        expr_build ~handover:{ M.Expr.handover = build } st e in
-    seal ~handover:{ M.Expr.handover } stmt
+            ~handover:{ M.Expr.expr = expr_handover; cast = cast_handover }
+            st
+            e in
+        expr_build
+          ~handover:{ M.Expr.expr = build; cast = cast_handover } st e in
+    seal ~handover:{ M.Expr.expr = expr_handover; cast = cast_handover } stmt
 end
 
 module Delete = struct
   let expr_build st e = Expr.build st e
+  let cast_handover = Expr.string_of_cast
 
   include M.Delete
 
   let seal stmt =
-    let rec handover
+    let rec expr_handover
       : type a. build_step -> a M.Expr.t -> build_step =
       fun st e ->
         let build st e =
           Expr.build
             ~placeholder:D.placeholder
-            ~handover:{ M.Expr.handover = handover } st e in
-        expr_build ~handover:{ M.Expr.handover = build } st e in
-    seal ~handover:{ M.Expr.handover } stmt
+            ~handover:{ M.Expr.expr = expr_handover; cast = cast_handover }
+            st
+            e in
+        expr_build
+          ~handover:{ M.Expr.expr = build; cast = cast_handover } st e in
+    seal ~handover:{ M.Expr.expr = expr_handover; cast = cast_handover } stmt
 end
