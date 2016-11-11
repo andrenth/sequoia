@@ -28,3 +28,27 @@ module UpdateDeleteExpr : sig
            -> 'a Sequoia_expr.t
            -> Sequoia_common.build_step
 end
+
+module InsertReplace : sig
+  module Vector : Sequoia_vector.S
+    with type ('t, 'a) elem := ('t, 'a) Sequoia_field.t
+
+  type _ t =
+    | I :
+        { table  : 't Sequoia_table.t
+        ; fields : ('t, 'a, 'n Sequoia_vector.Nat.s) Vector.t
+        ; values : ('u, 'a, 'm Sequoia_vector.Nat.s, 'n Sequoia_vector.Nat.s)
+                   Sequoia_lit.Vector.matrix
+        } -> 't t
+
+  val create : into:'t Sequoia_table.t
+            -> fields:('t, 'a, 'n Sequoia_vector.Nat.s) Vector.t
+            -> values:('u, 'a, 'm Sequoia_vector.Nat.s, 'n Sequoia_vector.Nat.s)
+                      Sequoia_lit.Vector.matrix
+            -> 't t
+
+  val seal : placeholder:(int -> string)
+          -> query:string
+          -> 't t
+          -> string * Sequoia_param.t list
+end

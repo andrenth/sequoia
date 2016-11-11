@@ -22,6 +22,7 @@ Library "sequoia"
                     Sequoia_lit,
                     Sequoia_param,
                     Sequoia_query_common,
+                    Sequoia_replace,
                     Sequoia_select,
                     Sequoia_table,
                     Sequoia_update,

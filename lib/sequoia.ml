@@ -79,8 +79,9 @@ module Make (D : Driver.S) = struct
       include MakeTable (struct type t let name = name end)
     end : TABLE)
 
-  module Select = Sequoia_select.Make (D)
-  module Insert = Sequoia_insert.Make (D)
-  module Update = Sequoia_update.Make (D)
-  module Delete = Sequoia_delete.Make (D)
+  module Select  = Sequoia_select.Make (D)
+  module Insert  = Sequoia_insert.Make (D)
+  module Replace = Sequoia_replace.Make (D)
+  module Update  = Sequoia_update.Make (D)
+  module Delete  = Sequoia_delete.Make (D)
 end
