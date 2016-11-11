@@ -237,7 +237,7 @@ actually do refer to the same thing.
 This is based on my SQL usage, where the need for arbitrary expressions in join
 conditionas has not appeared. I could be persuaded that it is important though.
 
-### `INSERT` queries
+### `INSERT` and `REPLACE` queries
 
 Below is an example of an `INSERT` query. Currently only literal values are
 supported for insertion.
@@ -258,6 +258,9 @@ let query, params = Mysql.(Lit.(Vector.(Insert.(Vector.(
 The query ensures that the `fields` vector has the same length as each of the
 vectors in `values`, and that their respective elements match. There is no
 check for missing non-NULL fields, though this could be added in the future.
+
+`REPLACE` queries follow the same structure, but for those, open the `Replace`
+module instead of `Insert` and call the `replace` function instead of `insert`.
 
 ### `UPDATE` queries
 
