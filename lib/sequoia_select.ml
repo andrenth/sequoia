@@ -190,22 +190,31 @@ module Make (D : Driver.S) : S = struct
              -> build_step =
       fun ~handover st e ->
         match e with
-        | Field (fld, _, _) ->
-            { repr = Field.to_string fld
-            ; params = []
-            ; pos = st.pos
-            }
+        | Field (Field.Bool _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
+        | Field (Field.Int _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
+        | Field (Field.Float _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
+        | Field (Field.String _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
+        | Field (Field.Blob _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
+        | Field (Field.Null.Bool _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
+        | Field (Field.Null.Int _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
+        | Field (Field.Null.Float _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
+        | Field (Field.Null.String _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
+        | Field (Field.Null.Blob _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
         | Foreign ((fld, _), _, _) ->
-            { repr = Field.to_string fld
-            ; params = []
-            ; pos = st.pos
-            }
+            { repr = Field.to_string fld; params = []; pos = st.pos }
         | Select s ->
             let repr, params = T.seal ~handover s in
-            { repr = "(" ^ repr ^ ")"
-            ; params
-            ; pos = st.pos
-            }
+            { repr = "(" ^ repr ^ ")"; params; pos = st.pos }
         | e ->
             Expr.build ~placeholder:D.placeholder ~handover st e
 

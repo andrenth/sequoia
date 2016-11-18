@@ -1,11 +1,30 @@
 module Mysql = Sequoia_mysql
 
+module Bool = struct
+  type t =
+    | True
+    | False
+
+  let instance = function
+    | True ->
+        (module struct
+          type t = True
+          let to_string = "TRUE"
+        end : Mysql.Enum.Instance)
+    | False ->
+        (module struct
+          type t = False
+          let to_string = "FALSE"
+        end : Mysql.Enum.Instance)
+end
+
 module%sql User = struct
   include (val Mysql.table "users")
   let id = Field.int "id"
   let name = Field.string "name"
   let site = Field.Null.string "site"
   let created = Field.timestamp "created"
+  let active = Field.enum (module Bool) "active"
 end
 
 module%sql Team = struct

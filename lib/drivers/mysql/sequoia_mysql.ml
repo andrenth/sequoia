@@ -33,6 +33,18 @@ let base_time =
   ; second = 0
   }
 
+module Enum = struct
+  module type Instance = sig
+    type t
+    val to_string : string
+  end
+
+  module type S = sig
+    type t
+    val instance : t -> (module Instance)
+  end
+end
+
 module Field = struct
   include (M.Field : module type of M.Field
     with module Null := M.Field.Null)
@@ -42,6 +54,7 @@ module Field = struct
     | Timestamp : string * 't M.Table.t -> ('t, [`Timestamp] time) t
     | Date : string * 't M.Table.t -> ('t, [`Date] time) t
     | Datetime : string * 't M.Table.t -> ('t, [`Datetime] time) t
+    | Enum : string * 't M.Table.t * (module Enum.Instance) -> ('t, (module Enum.Instance)) t
 
   module Null = struct
     include M.Field.Null
@@ -51,28 +64,73 @@ module Field = struct
       | Timestamp : string * 't M.Table.t -> ('t, [`Timestamp] time option) t
       | Date : string * 't M.Table.t -> ('t, [`Date] time option) t
       | Datetime : string * 't M.Table.t -> ('t, [`Datetime] time option) t
+      | Enum : string * 't M.Table.t * (module Enum.Instance) -> ('t, (module Enum.Instance) option) t
 
     let time table name = Time (name, table)
     let timestamp table name = Timestamp (name, table)
     let date table name = Date (name, table)
     let datetime table name = Datetime (name, table)
+
+    let enum table (module E : Enum.S) name =
+      Enum (name, table, (module struct
+        type t = E.t
+        let to_string = "" (* dummy *)
+      end : Enum.Instance))
   end
+
+  let name : type a. ('t, a) t -> string = function
+    | Time (n, _) -> n
+    | Timestamp (n, _) -> n
+    | Date (n, _) -> n
+    | Datetime (n, _) -> n
+    | Enum (n, _, _) -> n
+    | Null.Time (n, _) -> n
+    | Null.Timestamp (n, _) -> n
+    | Null.Date (n, _) -> n
+    | Null.Datetime (n, _) -> n
+    | Null.Enum (n, _, _) -> n
+    | fld -> name fld
+
+  let table : type u a. (u, a) t -> u Table.t = function
+    | Time (_, t) -> t
+    | Timestamp (_, t) -> t
+    | Date (_, t) -> t
+    | Datetime (_, t) -> t
+    | Enum (_, t, _) -> t
+    | Null.Time (_, t) -> t
+    | Null.Timestamp (_, t) -> t
+    | Null.Date (_, t) -> t
+    | Null.Datetime (_, t) -> t
+    | Null.Enum (_, t, _) -> t
+    | fld -> table fld
 
   let to_string : type a b. (a, b) t -> string = function
     | Time (name, table) -> sprintf "%s.%s" table.Table.name name
     | Timestamp (name, table) -> sprintf "%s.%s" table.Table.name name
     | Date (name, table) -> sprintf "%s.%s" table.Table.name name
     | Datetime (name, table) -> sprintf "%s.%s" table.Table.name name
+    | Enum (name, table, _) -> sprintf "%s.%s" table.Table.name name
     | Null.Time (name, table) -> sprintf "%s.%s" table.Table.name name
     | Null.Timestamp (name, table) -> sprintf "%s.%s" table.Table.name name
     | Null.Date (name, table) -> sprintf "%s.%s" table.Table.name name
     | Null.Datetime (name, table) -> sprintf "%s.%s" table.Table.name name
+    | Null.Enum (name, table, _) -> sprintf "%s.%s" table.Table.name name
     | other -> to_string other
+
+  let to_string fld =
+    let t = table fld in
+    sprintf "%s.%s" (t.Table.name) (name fld)
 
   let time table name = Time (name, table)
   let timestamp table name = Timestamp (name, table)
   let date table name = Date (name, table)
   let datetime table name = Datetime (name, table)
+
+  let enum table (module E : Enum.S) name =
+    Enum (name, table, (module struct
+      type t = E.t
+      let to_string = "" (* dummy *)
+    end : Enum.Instance))
 end
 
 module type MYSQL_NULL_FIELD = sig
@@ -82,6 +140,7 @@ module type MYSQL_NULL_FIELD = sig
   val timestamp : string -> [`Timestamp] time option t
   val date : string -> [`Date] time option t
   val datetime : string -> [`Datetime] time option t
+  val enum : (module Enum.S) -> string -> (module Enum.Instance) option t
 end
 
 module type MYSQL_FIELD = sig
@@ -91,6 +150,7 @@ module type MYSQL_FIELD = sig
   val timestamp : string -> [`Timestamp] time t
   val date : string -> [`Date] time t
   val datetime : string -> [`Datetime] time t
+  val enum : (module Enum.S) -> string -> (module Enum.Instance) t
 end
 
 module type MYSQL_TABLE = sig
@@ -116,6 +176,7 @@ module MakeMysqlTable (T: Sequoia.NAMED) : MYSQL_TABLE = struct
     let timestamp = Field.timestamp table
     let date = Field.date table
     let datetime = Field.datetime table
+    let enum = Field.enum table
 
     module Null = struct
       include Base.Field.Null
@@ -124,6 +185,7 @@ module MakeMysqlTable (T: Sequoia.NAMED) : MYSQL_TABLE = struct
       let timestamp = Field.Null.timestamp table
       let date = Field.Null.date table
       let datetime = Field.Null.datetime table
+      let enum = Field.Null.enum table
     end
   end
 end
@@ -161,6 +223,7 @@ module Param = struct
     | Timestamp of [`Timestamp] time
     | Date of [`Date] time
     | Datetime of [`Datetime] time
+    | Enum of (module Enum.Instance)
 end
 
 module Lit = struct
@@ -171,12 +234,14 @@ module Lit = struct
     | Timestamp : [`Timestamp] time -> [`Timestamp] time t
     | Date : [`Date] time -> [`Date] time t
     | Datetime : [`Datetime] time -> [`Datetime] time t
+    | Enum : (module Enum.Instance) -> (module Enum.Instance) t
 
   let to_param : type a. a t -> Param.t = function
     | Time t -> Param.Time t
     | Timestamp t -> Param.Timestamp t
     | Date d -> Param.Date d
     | Datetime d -> Param.Datetime d
+    | Enum e -> Param.Enum e
     | lit -> to_param lit
 
   let build : type a. build_step -> a t -> build_step =
@@ -324,6 +389,9 @@ module Expr = struct
                ?(hour = 0) ?(minute = 0) ?(second = 0) = fun _ ->
     Lit (Lit.Datetime { base_time with year; month; day; minute; second })
 
+  let enum inst = fun _ ->
+    Lit (Lit.Enum inst)
+
   let acos f = fun src -> Acos (f src)
   let ascii f = fun src -> Ascii (f src)
   let asin f = fun src -> Asin (f src)
@@ -444,6 +512,8 @@ module Expr = struct
       | Lit (Lit.Timestamp t) -> build_param st (Param.Timestamp t)
       | Lit (Lit.Date d) -> build_param st (Param.Date d)
       | Lit (Lit.Datetime d) -> build_param st (Param.Datetime d)
+      | Lit (Lit.Enum e) ->
+          build_param st (Param.Enum e)
       (* Functions *)
       | Abs e -> fn "ABS(" [e] ")"
       | Acos e -> fn "ACOS(" [e] ")"
@@ -585,7 +655,26 @@ module Select = struct
         | Field.Null.Timestamp (n, t) -> Field (Field.Timestamp (n, t), src, sts)
         | Field.Null.Date (n, t) -> Field (Field.Date (n, t), src, sts)
         | Field.Null.Datetime (n, t) -> Field (Field.Datetime (n, t), src, sts)
+        | Field.Null.Enum (n, t, e) -> Field (Field.Enum (n, t, e), src, sts)
         | _ -> unwrap fld sts src
+
+    let build
+      : type a. handover:Expr.handover
+             -> build_step
+             -> a Expr.t
+             -> build_step =
+      fun ~handover st -> function
+        (* Fields *)
+        | Field (Field.Time _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
+        | Field (Field.Timestamp _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
+        | Field (Field.Date _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
+        | Field (Field.Enum _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
+        (* Handover *)
+        | e -> build ~handover st e
   end
 
   let seal stmt =

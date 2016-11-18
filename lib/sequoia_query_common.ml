@@ -51,16 +51,18 @@ module UpdateDeleteExpr = struct
            -> build_step =
     fun ~placeholder ~handover st e ->
       match e with
-      | Field (fld, _) ->
-          { repr = Field.to_string fld
-          ; params = []
-          ; pos = st.pos
-          }
+      | Field (Field.Bool _ as fld, _) ->
+          { repr = Field.to_string fld; params = []; pos = st.pos }
+      | Field (Field.Int _ as fld, _) ->
+          { repr = Field.to_string fld; params = []; pos = st.pos }
+      | Field (Field.Float _ as fld, _) ->
+          { repr = Field.to_string fld; params = []; pos = st.pos }
+      | Field (Field.String _ as fld, _) ->
+          { repr = Field.to_string fld; params = []; pos = st.pos }
+      | Field (Field.Blob _ as fld, _) ->
+          { repr = Field.to_string fld; params = []; pos = st.pos }
       | Foreign ((fld, _), _) ->
-          { repr = Field.to_string fld
-          ; params = []
-          ; pos = st.pos
-          }
+          { repr = Field.to_string fld; params = []; pos = st.pos }
       | e ->
           Expr.build ~placeholder ~handover st e
 end

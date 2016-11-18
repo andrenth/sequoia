@@ -5,9 +5,10 @@ module Mysql = Sequoia_mysql
 let print_params ps =
   printf "[\n%!";
   let print_param = function
+    | Mysql.Param.Bool b -> printf "  Bool %b,\n%!" b
     | Mysql.Param.Int i -> printf "  Int %d,\n%!" i
     | Mysql.Param.String s -> printf "  String %s,\n%!" s
-    | Mysql.Param.Bool b -> printf "  Bool %b,\n%!" b
+    | Mysql.Param.Enum (module E) -> printf "  %s,\n%!" (E.to_string)
     | _ -> printf "  <something else>,\n%!" in
   let rec print = function
     | [] -> printf "]\n%!"
@@ -35,7 +36,10 @@ let () =
                (unwrap User.site)
            ; field User.id =? [int 1; int 2; int 3]
            ]
-      |> where (field User.name =% "foo%" && is_not_null (field User.site))
+      |> where
+           (field User.name =% "foo%"
+            && is_not_null (field User.site)
+            && field User.active = enum Bool.(instance True))
       |> group_by [field User.name; field Team.id]
            ~having:(length (field User.name) > int 5)
       |> order_by [field User.name]
