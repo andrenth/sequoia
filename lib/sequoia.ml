@@ -18,30 +18,36 @@ module Make (D : Driver.S) = struct
   module Field  = Sequoia_field
   module Vector = Sequoia_vector
 
+  module type NULL_FIELD = sig
+    type 'a t
+    val bool : string -> bool option t
+    val int : string -> int option t
+    val float : string -> float option t
+    val string : string -> string option t
+    val blob : string -> bytes option t
+  end
+
+  module type FIELD = sig
+    type table
+    type 'a t = (table, 'a) Field.t
+    type 't foreign_key = (table, 't) Field.foreign_key
+
+    val bool : string -> bool t
+    val int : string -> int t
+    val float : string -> float t
+    val string : string -> string t
+    val blob : string -> bytes t
+
+    val foreign_key : string -> references:('t, int) Field.t -> 't foreign_key
+  end
+
   module type TABLE = sig
     type t
     val table : t Table.t
 
     module Field : sig
-      type table = t
-      type 'a t = (table, 'a) Field.t
-      type 't foreign_key = (table, 't) Field.foreign_key
-
-      val bool : string -> bool t
-      val int : string -> int t
-      val float : string -> float t
-      val string : string -> string t
-      val blob : string -> bytes t
-
-      val foreign_key : string -> references:('t, int) Field.t -> 't foreign_key
-
-      module Null : sig
-        val bool : string -> bool option t
-        val int : string -> int option t
-        val float : string -> float option t
-        val string : string -> string option t
-        val blob : string -> bytes option t
-      end
+      include FIELD with type table = t
+      module Null : NULL_FIELD with type 'a t := 'a t
     end
   end
 
@@ -75,9 +81,7 @@ module Make (D : Driver.S) = struct
   end
 
   let table name =
-    (module struct
-      include MakeTable (struct type t let name = name end)
-    end : TABLE)
+    (module MakeTable (struct type t let name = name end) : TABLE)
 
   module Select  = Sequoia_select.Make (D)
   module Insert  = Sequoia_insert.Make (D)

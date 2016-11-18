@@ -5,6 +5,7 @@ module%sql User = struct
   let id = Field.int "id"
   let name = Field.string "name"
   let site = Field.Null.string "site"
+  let created = Field.timestamp "created"
 end
 
 module%sql Team = struct

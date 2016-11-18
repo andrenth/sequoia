@@ -33,26 +33,6 @@ module Null = struct
   let blob b = Blob b
 end
 
-let build :
-  type a. placeholder:(int -> string)
-       -> build_step
-       -> a t
-       -> build_step =
-  fun ~placeholder st lit ->
-    let build_param = build_param placeholder st in
-    match lit with
-    | Bool b -> build_param (Param.Bool b)
-    | Int i -> build_param (Param.Int i)
-    | Float x -> build_param (Param.Float x)
-    | String s -> build_param (Param.String s)
-    | Blob b -> build_param (Param.Blob b)
-    | Null.Bool b -> build_param (Param.Bool b)
-    | Null.Int i -> build_param (Param.Int i)
-    | Null.Float x -> build_param (Param.Float x)
-    | Null.String s -> build_param (Param.String s)
-    | Null.Blob b -> build_param (Param.Blob b)
-    | _ -> assert false
-
 let to_param : type a. a t -> Param.t = function
   | Bool b -> Param.Bool b
   | Int i -> Param.Int i
@@ -65,6 +45,14 @@ let to_param : type a. a t -> Param.t = function
   | Null.String s -> Param.String s
   | Null.Blob b -> Param.Blob b
   | _ -> assert false
+
+let build :
+  type a. placeholder:(int -> string)
+       -> build_step
+       -> a t
+       -> build_step =
+  fun ~placeholder st lit ->
+    build_param placeholder st (to_param lit)
 
 type ('a, 'b) lit = 'b t
 

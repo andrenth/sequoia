@@ -75,6 +75,64 @@ module Field = struct
   let datetime table name = Datetime (name, table)
 end
 
+module type MYSQL_NULL_FIELD = sig
+  include NULL_FIELD
+
+  val time : string -> [`Time] time option t
+  val timestamp : string -> [`Timestamp] time option t
+  val date : string -> [`Date] time option t
+  val datetime : string -> [`Datetime] time option t
+end
+
+module type MYSQL_FIELD = sig
+  include FIELD
+
+  val time : string -> [`Time] time t
+  val timestamp : string -> [`Timestamp] time t
+  val date : string -> [`Date] time t
+  val datetime : string -> [`Datetime] time t
+end
+
+module type MYSQL_TABLE = sig
+  type t
+  val table : t Table.t
+
+  module Field : sig
+    include MYSQL_FIELD with type table = t
+    module Null : MYSQL_NULL_FIELD with type 'a t := 'a t
+  end
+end
+
+module MakeMysqlTable (T: Sequoia.NAMED) : MYSQL_TABLE = struct
+  module Base = MakeTable(T)
+  include (Base : TABLE with type t := Base.t and module Field := Base.Field)
+  type t = Base.t
+
+  module Field = struct
+    include (Base.Field : module type of Base.Field with
+      module Null := Base.Field.Null)
+
+    let time = Field.time table
+    let timestamp = Field.timestamp table
+    let date = Field.date table
+    let datetime = Field.datetime table
+
+    module Null = struct
+      include Base.Field.Null
+
+      let time = Field.Null.time table
+      let timestamp = Field.Null.timestamp table
+      let date = Field.Null.date table
+      let datetime = Field.Null.datetime table
+    end
+  end
+end
+
+let table name =
+  (module struct
+    include MakeMysqlTable (struct type t let name = name end)
+  end : MYSQL_TABLE)
+
 type time_unit
   = Seconds
   | Minutes
@@ -114,15 +172,16 @@ module Lit = struct
     | Date : [`Date] time -> [`Date] time t
     | Datetime : [`Datetime] time -> [`Datetime] time t
 
+  let to_param : type a. a t -> Param.t = function
+    | Time t -> Param.Time t
+    | Timestamp t -> Param.Timestamp t
+    | Date d -> Param.Date d
+    | Datetime d -> Param.Datetime d
+    | lit -> to_param lit
+
   let build : type a. build_step -> a t -> build_step =
     fun st lit ->
-      let build_param = build_param D.placeholder in
-      match lit with
-      | Time t -> build_param st (Param.Time t)
-      | Timestamp t -> build_param st (Param.Timestamp t)
-      | Date d -> build_param st (Param.Date d)
-      | Datetime d -> build_param st (Param.Datetime d)
-      | lit -> build ~placeholder:D.placeholder st lit
+      build_param D.placeholder st (to_param lit)
 end
 
 module Expr = struct
