@@ -174,11 +174,11 @@ let rec build
         }
     | Base.In (e, l) ->
         let st1 = build ~placeholder ~handover st e in
-        let st2 = build_function st1 (st1.repr ^ " IN(") l ")" in
+        let st2 = build_function st1 (st1.repr ^ " IN (") l ")" in
         { st2 with params = st1.params @ st2.params }
     | Base.Not_in (e, l) ->
         let st1 = build ~placeholder ~handover st e in
-        let st2 = build_function st1 (st1.repr ^ " NOT IN(") l ")" in
+        let st2 = build_function st1 (st1.repr ^ " NOT IN (") l ")" in
         { st2 with params = st1.params @ st2.params }
     | Base.Is_not_null e ->
         build_function st "" [e] " IS NOT NULL"
