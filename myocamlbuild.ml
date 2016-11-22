@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: f55b6e169c371e65a20de2a43e258520) *)
+(* DO NOT EDIT (digest: 0617240eb8255a46188c306ace538e4a) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -893,7 +893,7 @@ let package_default =
      flags = [];
      includes =
        [
-          ("lib_test/ppx", ["lib"; "lib/drivers/mysql"]);
+          ("lib_test/ppx", ["lib"; "lib/drivers/mysql"; "lib/ppx"]);
           ("lib/drivers/sqlite", ["lib"]);
           ("lib/drivers/mysql", ["lib"])
        ]

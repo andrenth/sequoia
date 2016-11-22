@@ -1,7 +1,7 @@
 <lib_test/ppx/*>: ppx_sequoia
 
 # OASIS_START
-# DO NOT EDIT (digest: 312b5e49fdd24b0fb9c1beda515edae4)
+# DO NOT EDIT (digest: b33fc647b41173709e51d29909465a2d)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -33,21 +33,18 @@ true: annot, bin_annot
 <lib/ppx/*.ml{,i,y}>: package(compiler-libs.common)
 <lib/ppx/*.ml{,i,y}>: package(ppx_tools)
 # Executable ppx_test
-<lib_test/ppx/t.{native,byte}>: package(compiler-libs.common)
-<lib_test/ppx/t.{native,byte}>: package(ppx_tools)
 <lib_test/ppx/t.{native,byte}>: package(unix)
 <lib_test/ppx/t.{native,byte}>: use_sequoia
 <lib_test/ppx/t.{native,byte}>: use_sequoia_mysql
+<lib_test/ppx/t.{native,byte}>: use_sequoia_ppx
 # Executable readme_test
-<lib_test/ppx/readme.{native,byte}>: package(compiler-libs.common)
-<lib_test/ppx/readme.{native,byte}>: package(ppx_tools)
 <lib_test/ppx/readme.{native,byte}>: package(unix)
 <lib_test/ppx/readme.{native,byte}>: use_sequoia
 <lib_test/ppx/readme.{native,byte}>: use_sequoia_mysql
-<lib_test/ppx/*.ml{,i,y}>: package(compiler-libs.common)
-<lib_test/ppx/*.ml{,i,y}>: package(ppx_tools)
+<lib_test/ppx/readme.{native,byte}>: use_sequoia_ppx
 <lib_test/ppx/*.ml{,i,y}>: package(unix)
 <lib_test/ppx/*.ml{,i,y}>: use_sequoia
 <lib_test/ppx/*.ml{,i,y}>: use_sequoia_mysql
+<lib_test/ppx/*.ml{,i,y}>: use_sequoia_ppx
 # OASIS_STOP
 true: debug, annot, bin_annot, warn_error_A

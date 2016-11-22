@@ -83,8 +83,7 @@ Executable "ppx_test"
   Install:          false
   Path:             lib_test/ppx
   MainIs:           t.ml
-  BuildTools:       ppx_sequoia
-  BuildDepends:     sequoia, sequoia.mysql
+  BuildDepends:     sequoia, sequoia.mysql, sequoia.ppx
   CompiledObject:   best
 
 Executable "readme_test"
@@ -92,6 +91,5 @@ Executable "readme_test"
   Install:          false
   Path:             lib_test/ppx
   MainIs:           readme.ml
-  BuildTools:       ppx_sequoia
-  BuildDepends:     sequoia, sequoia.mysql
+  BuildDepends:     sequoia, sequoia.mysql, sequoia.ppx
   CompiledObject:   best
