@@ -17,6 +17,15 @@ let dump_file =
     "/tmp/sequoia-%s-state.dump"
     (Filename.basename (Filename.dirname (Sys.getcwd ())))
 
+let load_state () =
+  try
+    let ch = open_in_bin dump_file in
+    let st = { tables = ref []; references = Marshal.from_channel ch } in
+    close_in ch;
+    Some st
+  with _ ->
+    None
+
 let error loc msg =
   raise @@ Location.Error (Location.error ~loc msg)
 
@@ -87,13 +96,10 @@ let rec map_query st loc = function
   | { pexp_desc = Pexp_extension ({ txt = "sql"; loc }, pstr) } ->
       begin match pstr with
       | PStr [{ pstr_desc = Pstr_eval (expr, _) }] ->
-          let ch = open_in_bin dump_file in
-          let st =
-            { tables = ref []
-            ; references = Marshal.from_channel ch
-            } in
-          close_in ch;
-          let expr = map_query st loc expr in
+          let expr =
+            match load_state () with
+            | Some st -> map_query st loc expr
+            | None -> expr in
           Ast_helper.with_default_loc loc (fun () -> expr)
       | _ ->
           error loc "invalid sql"
@@ -362,12 +368,6 @@ let rec map_module table references loc = function
   | { pstr_loc } :: rest ->
       map_module table references pstr_loc rest
 
-let load_state () =
-  let ch = open_in_bin dump_file in
-  let st = { tables = ref []; references = Marshal.from_channel ch } in
-  close_in ch;
-  st
-
 let sql_mapper references argv =
   { default_mapper with
     expr =
@@ -377,8 +377,10 @@ let sql_mapper references argv =
         | { pexp_desc = Pexp_extension ({ txt = "sql"; loc }, pstr) } ->
             begin match pstr with
             | PStr [{ pstr_desc = Pstr_eval (expr, _) }] ->
-                let st = load_state () in
-                let expr = map_query st loc expr in
+                let expr =
+                  match load_state () with
+                  | Some st -> map_query st loc expr
+                  | None -> expr in
                 Ast_helper.with_default_loc loc (fun () -> expr)
             | _ ->
                 error loc "invalid sql"
@@ -406,10 +408,14 @@ let sql_mapper references argv =
             | PStr
                 [{ pstr_desc =
                   Pstr_value (rec_flag, [{ pvb_expr } as b]) }] ->
-                let st = load_state () in
-                let expr = map_query st loc pvb_expr in
-                let binding = { b with pvb_expr = expr } in
-                let str = Str.value rec_flag [binding] in
+                let str =
+                  match load_state () with
+                  | Some st ->
+                      let expr = map_query st loc pvb_expr in
+                      let binding = { b with pvb_expr = expr } in
+                      Str.value rec_flag [binding]
+                  | None ->
+                      Str.value rec_flag [b] in
                 Ast_helper.with_default_loc loc (fun () -> str)
             | _ ->
                 error loc "invalid sql"
