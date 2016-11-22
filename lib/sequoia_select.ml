@@ -348,7 +348,7 @@ module Make (D : Driver.S) : S = struct
           let st = fst (join_exprs ~handover st exprs) in
           { st with repr = sprintf "ORDER BY (%s)" st.repr }
       | None ->
-          st
+          { blank_step with pos = st.pos }
 
     open Sequoia_query_common
 
