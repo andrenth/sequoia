@@ -671,6 +671,8 @@ module Select = struct
             { repr = Field.to_string fld; params = []; pos = st.pos }
         | Field (Field.Date _ as fld, _, _) ->
             { repr = Field.to_string fld; params = []; pos = st.pos }
+        | Field (Field.Datetime _ as fld, _, _) ->
+            { repr = Field.to_string fld; params = []; pos = st.pos }
         | Field (Field.Enum _ as fld, _, _) ->
             { repr = Field.to_string fld; params = []; pos = st.pos }
         (* Handover *)
