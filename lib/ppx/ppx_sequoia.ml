@@ -12,7 +12,10 @@ type state =
   ; references : (string * string, string * string) Hashtbl.t
   }
 
-let dump_file = "/tmp/sequoia-state.dump"
+let dump_file =
+  sprintf
+    "/tmp/sequoia-%s-state.dump"
+    (Filename.basename (Filename.dirname (Sys.getcwd ())))
 
 let error loc msg =
   raise @@ Location.Error (Location.error ~loc msg)
