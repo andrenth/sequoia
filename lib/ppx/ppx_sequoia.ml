@@ -259,14 +259,15 @@ let rec map_query st loc = function
       { e with pexp_desc =
                Pexp_apply (ob, [lbl, map_expr_list loc (map_select st) args]) }
 
-  (* field Table.field XXX *)
+  (* field Table.field *)
   | { pexp_desc =
       Pexp_apply (({ pexp_desc =
-                     Pexp_ident { txt = Lident "field"; loc } } as fld),
+                     Pexp_ident { txt = Lident fn; loc } } as fld),
                   ([ (Nolabel,
                       { pexp_desc =
                         Pexp_ident { txt = Ldot (Lident table, field) } })
-                  ] as args)) } as e ->
+                  ] as args)) } as e
+        when fn = "field"|| fn = "foreign_key" ->
       let steps = build_steps (index loc table !(st.tables)) in
       { e with pexp_desc = Pexp_apply (fld, snoc (Nolabel, steps) args) }
 
@@ -287,14 +288,18 @@ let rec map_query st loc = function
       e
 
 and map_select st loc = function
+  (* select [...; field|foreign_key|unwrap Table.field; ...] *)
   | { pexp_desc =
-      Pexp_apply (({ pexp_desc =
-                     Pexp_ident { txt = Lident fn; loc } } as fld),
-                  ([(_, { pexp_desc =
-                          Pexp_ident { txt = Ldot (Lident t, _) } })] as args)) } as e when fn = "field" || fn = "unwrap" ->
+      Pexp_apply
+        (({ pexp_desc =
+            Pexp_ident { txt = Lident fn; loc } } as fld),
+         ([(_, { pexp_desc =
+                 Pexp_ident { txt = Ldot (Lident t, _) } })] as args)) } as e
+        when fn = "field" || fn = "foreign_key" || fn = "unwrap" ->
       let steps = build_steps (index loc t !(st.tables)) in
       { e with pexp_desc = Pexp_apply (fld, snoc (Nolabel, steps) args) }
 
+  (* select [...; subquery (from ...); ...] *)
   | { pexp_desc =
       Pexp_apply (({ pexp_desc =
                      Pexp_ident { txt = Lident "subquery"; loc } } as sub),

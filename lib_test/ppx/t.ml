@@ -22,6 +22,7 @@ let () =
       |> right_join (having_one Project.leader)
       |> select
            [ field User.id
+           ; foreign_key Team.owner
            ; field User.name
            ; as_bool (field Team.id)
            ; field Team.name
@@ -38,6 +39,7 @@ let () =
            ]
       |> where
            (field User.name =% "foo%"
+            && foreign_key Team.owner > int 0
             && is_not_null (field User.site)
             && field User.active = enum Bool.(instance True))
       |> group_by [field User.name; field Team.id]
