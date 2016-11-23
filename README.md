@@ -52,31 +52,34 @@ end
 A `SELECT` query can be created like this:
 
 ```ocaml
-let query, params = Mysql.(Expr.(Select.(Expr.(Vector.(
-  from BookUser.table
-    |> left_join (belonging_to BookUser.user There)
-    |> left_join (belonging_to BookUser.book (Skip There))
-    |> left_join (belonging_to Book.publisher (Skip There))
-    |> select
-         [ field User.name There
-         ; field Book.title (Skip (Skip There))
-         ; field Publisher.name (Skip There)
-         ]
-    |> where (field User.name There = field Book.author (Skip (Skip There)))
-    |> order_by
-         [ field User.name There
-         ; field Book.title (Skip (Skip There))
-         ]
-    |> limit 10
-    |> seal
-)))))
+let query, params =
+	Mysql.(Expr.(Select.(Expr.(Vector.(OrderBy.Expr.(Vector.(
+    from BookUser.table
+      |> left_join (belonging_to BookUser.user There)
+      |> left_join (belonging_to BookUser.book (Skip There))
+      |> left_join (belonging_to Book.publisher (Skip There))
+      |> select
+           [ field User.name There
+           ; field Book.title (Skip (Skip There))
+           ; field Publisher.name (Skip There)
+           ]
+      |> where (field User.name There = field Book.author (Skip (Skip There)))
+      |> order_by
+           [ asc (field User.name There)
+           ; desc (field Book.title (Skip (Skip There)))
+           ]
+      |> limit 10
+      |> seal
+)))))))
 ```
 
 The epic sequence of local module opens makes the query cleaner. The following
 modules are opened: `Mysql`, `Mysql.Expr` (MySQL expressions that work on
 every query), `Mysql.Select` (functions for `SELECT` query creation),
-`Mysql.Select.Expr` (MySQL expressions allowed only in `SELECT` queries) and
-`Mysql.Select.Expr.Vector`, for vectors of such expressions.
+`Mysql.Select.Expr` (MySQL expressions allowed only in `SELECT` queries),
+`Mysql.Select.Expr.Vector` (vectors of such expressions), `OrderBy.Expr`
+(`ORDER BY` expressions are attached to `ASC` or `DESC` specifications) and
+`OrderBy.Expr.Vector` (vectors of `ORDER BY` expressions).
 
 The `seal` function marks the end of the query and returns two values: a
 string representation of the query, with markers for parameters according
@@ -197,24 +200,25 @@ module%sql BookUser = struct
   let user = Field.foreign_key "user_id" ~references:User.id
 end
 
-let%sql query, params = Mysql.(Expr.(Select.(Expr.(Vector.(
-  from BookUser.table
-    |> left_join (belonging_to BookUser.user)
-    |> left_join (belonging_to BookUser.book)
-    |> left_join (belonging_to Book.publisher)
-    |> select
-         [ field User.name
-         ; field Book.title
-         ; field Publisher.name
-         ]
-    |> where (field User.name = field Book.author)
-    |> order_by
-         [ field User.name
-         ; field Book.title
-         ]
-    |> limit 10
-    |> seal
-)))))
+let%sql query, params =
+  Mysql.(Expr.(Select.(Expr.(Vector.(OrderBy.Expr.(Vector.(
+    from BookUser.table
+      |> left_join (belonging_to BookUser.user)
+      |> left_join (belonging_to BookUser.book)
+      |> left_join (belonging_to Book.publisher)
+      |> select
+           [ field User.name
+           ; field Book.title
+           ; field Publisher.name
+           ]
+      |> where (field User.name = field Book.author)
+      |> order_by
+           [ asc (field User.name)
+           ; desc (field Book.title)
+           ]
+      |> limit 10
+      |> seal
+  )))))))
 ```
 
 Please note that the syntax extension only works when writing the query in
