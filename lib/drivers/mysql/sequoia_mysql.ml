@@ -666,15 +666,15 @@ module Select = struct
       fun ~handover st -> function
         (* Fields *)
         | Field (Field.Time _ as fld, _, _) ->
-            { st with repr = Field.to_string fld; pos = st.pos }
+            { st with repr = Field.to_string fld; pos = st.pos; params = [] }
         | Field (Field.Timestamp _ as fld, _, _) ->
-            { st with repr = Field.to_string fld; pos = st.pos }
+            { st with repr = Field.to_string fld; pos = st.pos; params = [] }
         | Field (Field.Date _ as fld, _, _) ->
-            { st with repr = Field.to_string fld; pos = st.pos }
+            { st with repr = Field.to_string fld; pos = st.pos; params = [] }
         | Field (Field.Datetime _ as fld, _, _) ->
-            { st with repr = Field.to_string fld; pos = st.pos }
+            { st with repr = Field.to_string fld; pos = st.pos; params = [] }
         | Field (Field.Enum _ as fld, _, _) ->
-            { st with repr = Field.to_string fld; pos = st.pos }
+            { st with repr = Field.to_string fld; pos = st.pos; params = [] }
         (* Handover *)
         | e -> build ~handover st e
   end

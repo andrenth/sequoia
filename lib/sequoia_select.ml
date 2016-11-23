@@ -266,7 +266,7 @@ module Make (D : Driver.S) : S = struct
             }
         | Alias name ->
             if AliasSet.mem name st.aliases then
-              { st with repr = name }
+              { st with repr = name; params = [] }
             else
               failwith (sprintf "unknown alias '%s'" name)
         | Field (Field.Bool _ as fld, _, _) ->
