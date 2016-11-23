@@ -16,45 +16,44 @@ let print_params ps =
   print ps
 
 let () =
-  let%sql query, params = Mysql.(Expr.(Select.(Expr.(Vector.(
-    from Team.table
-      |> left_join (belonging_to Team.owner)
-      |> right_join (having_one Project.leader)
-      |> select
-           [ field User.id
-           ; foreign_key Team.owner
-           ; field User.name
-           ; as_bool (field Team.id)
-           ; field Team.name
-           ; subquery (from User.table |> select [field User.name])
-           ; field User.id + int 1
-           ; date_add (date ~year:2016 ~month:10 ~day:20) 30 Days
-           ; if_ (length (field User.name) > int 10)
-               (field User.name)
-               (string "short")
-           ; if_ (is_null (field User.site))
-               (string "no site")
-               (unwrap User.site)
-           ; field User.id =? [int 1; int 2; int 3]
-           ]
-      |> where
-           (field User.name =% "foo%"
-            && foreign_key Team.owner > int 0
-            && is_not_null (field User.site)
-            && field User.active = enum Bool.(instance True))
-      |> group_by [field User.name; field Team.id]
-           ~having:(length (field User.name) > int 5)
-      |> order_by [field User.name]
-      |> limit 10
-      |> seal
-  ))))) in
+  let%sql query, params =
+    Mysql.(Expr.(Select.(Expr.(Vector.(OrderBy.Expr.(Vector.(
+      from Team.table
+        |> left_join (belonging_to Team.owner)
+        |> right_join (having_one Project.leader)
+        |> select
+             [ field User.id
+             ; (foreign_key Team.owner) --> "the_owner"
+             ; field User.name
+             ; as_bool (field Team.id)
+             ; field Team.name
+             ; subquery (from User.table |> select [field User.name])
+             ; field User.id + int 1
+             ; date_add (date ~year:2016 ~month:10 ~day:20) 30 Days
+             ; if_ (length (field User.name) > int 10)
+                 (field User.name)
+                 (string "short")
+             ; if_ (is_null (field User.site))
+                 (string "no site")
+                 (unwrap User.site)
+             ; field User.id =? [int 1; int 2; int 3]
+             ]
+        |> where
+             (alias "the_owner" = int 1 && field User.name =% "foo%"
+              && foreign_key Team.owner > int 0
+              && is_not_null (field User.site)
+              && field User.active = enum Bool.(instance True))
+        |> group_by [field User.name]
+        |> order_by [asc (alias "the_owner")]
+        |> seal
+    ))))))) in
   print_endline query;
   print_params params
 
 let () = print_endline "==="
 
 let () =
-  let%sql query, params = Mysql.(Select.(
+  let%sql query, params = Mysql.(Select.(Expr.(OrderBy.Expr.(Vector.(
     from TeamUser.table
       |> left_join (belonging_to TeamUser.team)
       |> right_join (belonging_to TeamUser.user)
@@ -63,17 +62,17 @@ let () =
            [ field Team.name
            ; field User.name
            ])
-      |> order_by Expr.(Vector.[field User.name; field Team.name])
+      |> order_by [asc (field User.name); desc (field Team.name)]
       |> limit 10 ~offset:5
       |> seal
-  )) in
+  ))))) in
   print_endline query;
   print_params params
 
 let () = print_endline "==="
 
 let () =
-  let query, params = Mysql.(Expr.(Select.(
+  let query, params = Mysql.(Expr.(Select.(Expr.(OrderBy.Expr.(Vector.(
     let src = from TeamUser.table in
     let src = left_join (belonging_to TeamUser.user There) src in
     let src = left_join (belonging_to TeamUser.team (Skip There)) src in
@@ -83,9 +82,10 @@ let () =
       ]) src in
     let stmt =
       where Expr.(field Team.name (Skip There) =% "foo%") sel in
-    let stmt = order_by Expr.(Vector.[field Team.name (Skip There)]) stmt in
+    let stmt =
+      order_by [asc (field Team.name (Skip There))] stmt in
     seal stmt
-  ))) in
+  )))))) in
   print_endline query;
   print_params params
 
@@ -174,17 +174,18 @@ let () =
 let () = print_endline "==="
 
 let () =
-  let query, params = Mysql.(Expr.(Update.(Vector.(Expr.(Vector.(
-    update User.table
-      ~set:
-        [ User.name, string "John Doe"
-        ; User.site, Null.string "johndoe.com"
-        ]
-    |> where (field User.name = string "john doe")
-    |> order_by [field User.name]
-    |> limit 10
-    |> seal
-  )))))) in
+  let query, params =
+    Mysql.(Expr.(Update.(Vector.(Expr.(Vector.(OrderBy.Expr.(Vector.(
+      update User.table
+        ~set:
+          [ User.name, string "John Doe"
+          ; User.site, Null.string "johndoe.com"
+          ]
+      |> where (field User.name = string "john doe")
+      |> order_by [desc (field User.name)]
+      |> limit 10
+      |> seal
+    )))))))) in
   print_endline query;
   print_params params
 

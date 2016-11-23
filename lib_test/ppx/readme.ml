@@ -40,24 +40,25 @@ let print_params ps =
     | p::ps -> print_param p; print ps in
   print ps
 
-let%sql query, params = Mysql.(Expr.(Select.(Expr.(Vector.(
-  from BookUser.table
-    |> left_join (belonging_to BookUser.user)
-    |> left_join (belonging_to BookUser.book)
-    |> left_join (belonging_to Book.publisher)
-    |> select
-         [ field User.name
-         ; field Book.title
-         ; field Publisher.name
-         ]
-    |> where (field User.name = field Book.author)
-    |> order_by
-         [ field User.name
-         ; field Book.title
-         ]
-    |> limit 10
-    |> seal
-)))))
+let%sql query, params =
+  Mysql.(Expr.(Select.(Expr.(Vector.(OrderBy.Expr.(Vector.(
+    from BookUser.table
+      |> left_join (belonging_to BookUser.user)
+      |> left_join (belonging_to BookUser.book)
+      |> left_join (belonging_to Book.publisher)
+      |> select
+           [ field User.name
+           ; field Book.title
+           ; field Publisher.name
+           ]
+      |> where (field User.name = field Book.author)
+      |> order_by
+           [ asc (field User.name)
+           ; desc (field Book.title)
+           ]
+      |> limit 10
+      |> seal
+  )))))))
 
 let () =
   print_endline query;

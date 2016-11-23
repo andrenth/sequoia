@@ -105,7 +105,28 @@ module type S = sig
               -> ('s, 'a, 'n Nat.s) Expr.Vector.t
               -> 's t
               -> 's t
-  val order_by : ('s, 'a, 'n Nat.s) Expr.Vector.t -> 's t -> 's t
+
+  module OrderBy : sig
+    type order
+
+    type ('s, 'a) expr = 'a Expr.t * order
+
+    module Expr : sig
+      type ('s, 'a) mk = 's source -> 'a Expr.t * order
+
+      module Vector : Vector.S with type ('s, 'a) elem := ('s, 'a) mk
+
+      val asc : ('s source -> 'a Expr.t) -> 's source -> ('s, 'a) expr
+      val desc : ('s source -> 'a Expr.t) -> 's source -> ('s, 'a) expr
+    end
+
+    module Vector : Vector.S with type ('s, 'a) elem := ('s, 'a) expr
+
+    val vectormk_to_vector : 's source -> ('s, 'a, 'n) Expr.Vector.t
+                          -> ('s, 'a, 'n) Vector.t
+  end
+
+  val order_by : ('s, 'a, 'n Nat.s) OrderBy.Expr.Vector.t -> 's t -> 's t
   val limit : ?offset:int -> int -> 'a t -> 'a t
 end
 
@@ -131,6 +152,43 @@ module Make (D : Driver.S) : S = struct
   type ('s1, 't1, 't2, 's2) steps =
     | There : (('t2 -> _) as 's1, 't1, 't2, 's1) steps
     | Skip : ('s1, 't1, 't2, 's2) steps -> ('a -> 's1, 't1, 't2, 'a -> 's2) steps
+
+  module OrderBy = struct
+    type order =
+      | Asc
+      | Desc
+
+    type ('s, 'a) expr = 'a Expr.t * order
+
+    module Expr = struct
+      type ('s, 'a) mk = 's source -> 'a Expr.t * order
+
+      module Vector = Vector.Make(struct
+        type ('s, 'a) elem = ('s, 'a) mk
+      end)
+
+      let asc f = fun src -> (f src, Asc)
+      let desc f = fun src -> (f src, Desc)
+    end
+
+    module Vector = Vector.Make(struct
+      type ('s, 'a) elem = ('s, 'a) expr
+    end)
+
+    let rec vectormk_to_vector
+      : type a s n. s source
+                 -> (s, a, n) Expr.Vector.t
+                 -> (s, a, n) Vector.t =
+      fun src vec ->
+        let open Expr.Vector in
+        match vec with
+        | [] ->
+            let open Vector in
+            []
+        | f::fs ->
+            let open Vector in
+            (f src) :: vectormk_to_vector src fs
+  end
 
   module rec SelectExpr : sig
     type 's select = 's T.t
@@ -265,10 +323,10 @@ module Make (D : Driver.S) : S = struct
       | S :
           { source   : 's source
           ; distinct : bool
-          ; select   : ('a, _, 'n Nat.s) Expr.Vector.t
-          ; where    : 'b Expr.t option
-          ; group_by : (('c, _, 'm Nat.s) Expr.Vector.t * bool Expr.t option) option
-          ; order_by : ('d, _, 'k Nat.s) Expr.Vector.t option
+          ; select   : (_, _, 'n Nat.s) Expr.Vector.t
+          ; where    : _ Expr.t option
+          ; group_by : ((_, _, 'm Nat.s) Expr.Vector.t * bool Expr.t option) option
+          ; order_by : (_, _, 'k Nat.s) OrderBy.Vector.t option
           ; limit    : (int * int) option
           } -> 's t
 
@@ -281,10 +339,10 @@ module Make (D : Driver.S) : S = struct
       | S :
           { source   : 's source
           ; distinct : bool
-          ; select   : ('a, _, 'n Nat.s) E.Vector.t
-          ; where    : 'b Expr.t option
-          ; group_by : (('c, _, 'm Nat.s) E.Vector.t * bool Expr.t option) option
-          ; order_by : ('d, _, 'k Nat.s) E.Vector.t option
+          ; select   : (_, _, 'n Nat.s) E.Vector.t
+          ; where    : _ Expr.t option
+          ; group_by : ((_, _, 'm Nat.s) E.Vector.t * bool Expr.t option) option
+          ; order_by : (_, _, 'k Nat.s) OrderBy.Vector.t option
           ; limit    : (int * int) option
           } -> 's t
 
@@ -367,9 +425,31 @@ module Make (D : Driver.S) : S = struct
         | None ->
             { blank_step with pos = st.pos; aliases = st.aliases }
 
+    let order_to_string = function
+      | OrderBy.Asc -> "ASC"
+      | OrderBy.Desc -> "DESC"
+
+    let join_order_by_exprs ~handover st =
+      OrderBy.Vector.vector_fold_left
+        { OrderBy.Vector.f = fun (st, i) (e, ord) ->
+          let st' = Expr.build ~handover st e in
+          let st' =
+            { st' with repr = st'.repr ^ " " ^ order_to_string ord } in
+          if i = 0 then
+            (st', 1)
+          else
+            let st =
+              { st' with
+                repr = st.repr ^ ", " ^ st'.repr
+              ; params = st.params @ st'.params
+              ; pos = st'.pos
+              } in
+            (st, i + 1) }
+        ({ blank_step with pos = st.pos; aliases = st.aliases }, 0)
+
     let build_order_by ~handover st = function
       | Some exprs ->
-          let st = fst (join_exprs ~handover st exprs) in
+          let st = fst (join_order_by_exprs ~handover st exprs) in
           { st with repr = sprintf "ORDER BY (%s)" st.repr }
       | None ->
           { blank_step with pos = st.pos; aliases = st.aliases }
@@ -453,9 +533,9 @@ module Make (D : Driver.S) : S = struct
       S { stmt with group_by = Some (flds, having) }
 
   let order_by
-    : type a s n. (s, a, n Nat.s) Expr.Vector.t -> s t -> s t =
+    : type a s n. (s, a, n Nat.s) OrderBy.Expr.Vector.t -> s t -> s t =
     fun bl (S stmt) ->
-      let vec = Expr.vectormk_to_vector stmt.source bl in
+      let vec = OrderBy.vectormk_to_vector stmt.source bl in
       S { stmt with order_by = Some vec }
 
   let limit ?(offset = 0) n (S stmt) =

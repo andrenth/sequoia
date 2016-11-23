@@ -16,6 +16,26 @@ module type S = sig
 
   type ('t, 'a) mk = ('t, 'a) Field.t * ('t Table.t -> ('t, 'a) Expr.expr)
 
+  module OrderBy : sig
+    type order
+
+    type ('t, 'a) expr = 'a Expr.t * order
+
+    module Expr : sig
+      type ('t, 'a) mk = 't Table.t -> 'a Expr.t * order
+
+      module Vector : Vector.S with type ('t, 'a) elem := ('t, 'a) mk
+
+      val asc : ('t Table.t -> 'a Expr.t) -> 't Table.t -> ('t, 'a) expr
+      val desc : ('t Table.t -> 'a Expr.t) -> 't Table.t -> ('t, 'a) expr
+    end
+
+    module Vector : Vector.S with type ('t, 'a) elem := ('t, 'a) expr
+
+    val vectormk_to_vector : 't Table.t -> ('t, 'a, 'n) Expr.Vector.t
+                          -> ('t, 'a, 'n) Vector.t
+  end
+
   module Expr : sig
     include module type of Sequoia_query_common.UpdateDeleteExpr
 
@@ -28,12 +48,49 @@ module type S = sig
 
   val update : 't Table.t -> set:('t, 'a, 'n Nat.s) Vector.t -> 't t
   val where : ('t Table.t -> 'a Sequoia_expr.t) -> 't t -> 't t
-  val order_by : ('t, 'a, 'n Nat.s) Expr.Vector.t -> 't t -> 't t
+  val order_by : ('t, 'a, 'n Nat.s) OrderBy.Expr.Vector.t -> 't t -> 't t
   val limit : ?offset:int -> int -> 't t -> 't t
 end
 
 module Make (D : Driver.S) : S = struct
   open Sequoia_query_common
+
+  module OrderBy = struct
+    type order =
+      | Asc
+      | Desc
+
+    type ('s, 'a) expr = 'a Expr.t * order
+
+    module Expr = struct
+      type ('t, 'a) mk = 't Table.t -> 'a Expr.t * order
+
+      module Vector = Vector.Make(struct
+        type ('t, 'a) elem = ('t, 'a) mk
+      end)
+
+      let asc f = fun src -> (f src, Asc)
+      let desc f = fun src -> (f src, Desc)
+    end
+
+    module Vector = Vector.Make(struct
+      type ('t, 'a) elem = ('t, 'a) expr
+    end)
+
+    let rec vectormk_to_vector
+      : type a n. 't Table.t
+               -> ('t, a, n) Expr.Vector.t
+               -> ('t, a, n) Vector.t =
+      fun src vec ->
+        let open Expr.Vector in
+        match vec with
+        | [] ->
+            let open Vector in
+            []
+        | f::fs ->
+            let open Vector in
+            (f src) :: vectormk_to_vector src fs
+  end
 
   module E = struct
     include UpdateDeleteExpr
@@ -76,9 +133,9 @@ module Make (D : Driver.S) : S = struct
   type 't t =
     | U :
         { table    : 't Table.t
-        ; updates  : ('t, 'a, 'n Nat.s) UpdateVec.t
-        ; where    : 'b Expr.t option
-        ; order_by : ('c, _, 'm Nat.s) E.Vec.t option
+        ; updates  : ('t, _, 'n Nat.s) UpdateVec.t
+        ; where    : _ Expr.t option
+        ; order_by : (_, _, 'm Nat.s) OrderBy.Vector.t option
         ; limit    : (int * int) option
         } -> 't t
 
@@ -112,9 +169,9 @@ module Make (D : Driver.S) : S = struct
     U { stmt with limit = Some (offset, n) }
 
   let order_by
-    : type a u n. (u, a, n Nat.s) E.Vector.t -> u t -> u t =
+    : type a u n. (u, a, n Nat.s) OrderBy.Expr.Vector.t -> u t -> u t =
     fun bl (U stmt) ->
-      let vec = E.vectormk_to_vector stmt.table bl in
+      let vec = OrderBy.vectormk_to_vector stmt.table bl in
       U { stmt with order_by = Some vec }
 
   let build_updates ~handover st table updates =
@@ -130,7 +187,8 @@ module Make (D : Driver.S) : S = struct
         else
           let suf = if i = 1 then "" else "," in
           let st =
-            { repr = sprintf "%s\n%s = %s%s"  st.repr fld st'.repr suf
+            { st' with
+              repr = sprintf "%s\n%s = %s%s"  st.repr fld st'.repr suf
             ; params = st.params @ st'.params
             ; pos = st'.pos
             } in
@@ -138,30 +196,36 @@ module Make (D : Driver.S) : S = struct
     let len = UpdateVec.vector_length updates in
     fst @@ UpdateVec.vector_fold_left
       { UpdateVec.f = fold }
-      ({ blank_step with pos = st.pos }, len)
+      ({ blank_step with pos = st.pos; aliases = st.aliases }, len)
       updates
 
-  let join_exprs ~handover st =
-    E.Vec.vector_fold_left
-      { E.Vec.f = fun (st, i) e ->
+  let order_to_string = function
+    | OrderBy.Asc -> "ASC"
+    | OrderBy.Desc -> "DESC"
+
+  let join_order_by_exprs ~handover st =
+    OrderBy.Vector.vector_fold_left
+      { OrderBy.Vector.f = fun (st, i) (e, ord) ->
         let st' = E.build ~placeholder:D.placeholder ~handover st e in
+        let st' = { st' with repr = st'.repr ^ " " ^ order_to_string ord } in
         if i = 0 then
           (st', 1)
         else
           let st =
-            { repr = st.repr ^ ", " ^ st'.repr
+            { st' with
+              repr = st.repr ^ ", " ^ st'.repr
             ; params = st.params @ st'.params
             ; pos = st'.pos
             } in
           (st, i + 1) }
-      ({ blank_step with pos = st.pos }, 0)
+      ({ blank_step with pos = st.pos; aliases = st.aliases }, 0)
 
   let build_order_by ~handover st = function
     | Some exprs ->
-        let st = fst (join_exprs ~handover st exprs) in
+        let st = fst (join_order_by_exprs ~handover st exprs) in
         { st with repr = "ORDER BY " ^ st.repr }
     | None ->
-        st
+        { blank_step with pos = st.pos; aliases = st.aliases }
 
   let seal ~handover (U { table; updates; where; limit; order_by }) =
     let st = { blank_step with pos = 1 } in

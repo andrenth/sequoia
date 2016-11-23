@@ -114,7 +114,31 @@ module type S = sig
               -> ('s, 'a, 'n Sequoia_vector.Nat.s) Expr.Vector.t
               -> 's t
               -> 's t
-  val order_by : ('s, 'a, 'n Sequoia_vector.Nat.s) Expr.Vector.t -> 's t -> 's t
+
+  module OrderBy : sig
+    type order
+
+    type ('s, 'a) expr = 'a Expr.t * order
+
+    module Expr : sig
+      type ('s, 'a) mk = 's source -> 'a Expr.t * order
+
+      module Vector : Sequoia_vector.S with type ('s, 'a) elem := ('s, 'a) mk
+
+      val asc : ('s source -> 'a Expr.t) -> 's source -> ('s, 'a) expr
+      val desc : ('s source -> 'a Expr.t) -> 's source -> ('s, 'a) expr
+    end
+
+    module Vector : Sequoia_vector.S with type ('s, 'a) elem := ('s, 'a) expr
+
+    val vectormk_to_vector : 's source -> ('s, 'a, 'n) Expr.Vector.t
+                          -> ('s, 'a, 'n) Vector.t
+  end
+
+  val order_by : ('s, 'a, 'n Sequoia_vector.Nat.s) OrderBy.Expr.Vector.t
+              -> 's t
+              -> 's t
+
   val limit : ?offset:int -> int -> 'a t -> 'a t
 end
 
