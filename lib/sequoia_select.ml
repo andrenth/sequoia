@@ -450,7 +450,7 @@ module Make (D : Driver.S) : S = struct
     let build_order_by ~handover st = function
       | Some exprs ->
           let st = fst (join_order_by_exprs ~handover st exprs) in
-          { st with repr = sprintf "ORDER BY (%s)" st.repr }
+          { st with repr = sprintf "ORDER BY %s" st.repr }
       | None ->
           { blank_step with pos = st.pos; aliases = st.aliases }
 
