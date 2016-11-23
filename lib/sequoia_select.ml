@@ -49,6 +49,8 @@ module type S = sig
 
     val build : handover:Expr.handover -> build_step -> 'a t -> build_step
 
+    val (-->) : ('s source -> 'a t) -> string -> 's source -> 'a t
+    val alias : string -> 's source -> 'a t
     val field : ('t, 'a) Field.t -> ('b, 'c, 't, 'd) steps -> 'b source -> 'a t
     val foreign_key : ('t1, 't2) Field.foreign_key -> ('a, 'b, 't1, 'c) steps -> 'a source -> 'd t
 
@@ -134,6 +136,8 @@ module Make (D : Driver.S) : S = struct
     type 's select = 's T.t
 
     type 'a Expr.t +=
+      | As : 'a Expr.t * string -> 'a Expr.t
+      | Alias : string -> 'a Expr.t
       | Field : ('t, 'a) Field.t * 's1 source * ('s1, 't1, 't, 's2) steps -> 'a Expr.t
       | Foreign : ('t, 't2) Field.foreign_key * 's1 source * ('s1, 't1, 't, 's2) steps -> 'a Expr.t
       | Select : 's T.t -> 'a Expr.t
@@ -142,6 +146,8 @@ module Make (D : Driver.S) : S = struct
 
     val build : handover:Expr.handover -> build_step -> 'a t -> build_step
 
+    val (-->) : ('s source -> 'a Expr.t) -> string -> 's source -> 'a Expr.t
+    val alias : string -> 's source -> 'a Expr.t
     val field : ('t, 'a) Field.t -> ('b, 'c, 't, 'd) steps -> 'b source -> 'a t
     val foreign_key : ('t1, 't2) Field.foreign_key -> ('a, 'b, 't1, 'c) steps -> 'a source -> 'd t
 
@@ -160,12 +166,16 @@ module Make (D : Driver.S) : S = struct
     type 's select = 's T.t
 
     type 'a Expr.t +=
+      | As : 'a Expr.t * string -> 'a Expr.t
+      | Alias : string -> 'a Expr.t
       | Field : ('t, 'a) Field.t * 's1 source * ('s1, 't1, 't, 's2) steps -> 'a Expr.t
       | Foreign : ('t, 't2) Field.foreign_key * 's1 source * ('s1, 't1, 't, 's2) steps -> 'a Expr.t
       | Select : 's T.t -> 'a Expr.t
 
     type 'a t = 'a Expr.t
 
+    let (-->) expr alias = fun src -> As (expr src, alias)
+    let alias name = fun src -> Alias name
     let field fld steps = fun src -> Field (fld, src, steps)
     let foreign_key fk steps = fun src -> Foreign (fk, src, steps)
     let subquery sel = fun src -> Select sel
@@ -190,31 +200,42 @@ module Make (D : Driver.S) : S = struct
              -> build_step =
       fun ~handover st e ->
         match e with
+        | As (expr, alias) ->
+            let st = build ~handover st expr in
+            { st with
+              repr = sprintf "%s AS %s" st.repr alias
+            ; aliases = AliasSet.add alias st.aliases
+            }
+        | Alias name ->
+            if AliasSet.mem name st.aliases then
+              { st with repr = name }
+            else
+              failwith (sprintf "unknown alias '%s'" name)
         | Field (Field.Bool _ as fld, _, _) ->
-            { repr = Field.to_string fld; params = []; pos = st.pos }
+            { st with repr = Field.to_string fld; params = [] }
         | Field (Field.Int _ as fld, _, _) ->
-            { repr = Field.to_string fld; params = []; pos = st.pos }
+            { st with repr = Field.to_string fld; params = [] }
         | Field (Field.Float _ as fld, _, _) ->
-            { repr = Field.to_string fld; params = []; pos = st.pos }
+            { st with repr = Field.to_string fld; params = [] }
         | Field (Field.String _ as fld, _, _) ->
-            { repr = Field.to_string fld; params = []; pos = st.pos }
+            { st with repr = Field.to_string fld; params = [] }
         | Field (Field.Blob _ as fld, _, _) ->
-            { repr = Field.to_string fld; params = []; pos = st.pos }
+            { st with repr = Field.to_string fld; params = [] }
         | Field (Field.Null.Bool _ as fld, _, _) ->
-            { repr = Field.to_string fld; params = []; pos = st.pos }
+            { st with repr = Field.to_string fld; params = [] }
         | Field (Field.Null.Int _ as fld, _, _) ->
-            { repr = Field.to_string fld; params = []; pos = st.pos }
+            { st with repr = Field.to_string fld; params = [] }
         | Field (Field.Null.Float _ as fld, _, _) ->
-            { repr = Field.to_string fld; params = []; pos = st.pos }
+            { st with repr = Field.to_string fld; params = [] }
         | Field (Field.Null.String _ as fld, _, _) ->
-            { repr = Field.to_string fld; params = []; pos = st.pos }
+            { st with repr = Field.to_string fld; params = [] }
         | Field (Field.Null.Blob _ as fld, _, _) ->
-            { repr = Field.to_string fld; params = []; pos = st.pos }
+            { st with repr = Field.to_string fld; params = [] }
         | Foreign ((fld, _), _, _) ->
-            { repr = Field.to_string fld; params = []; pos = st.pos }
+            { st with repr = Field.to_string fld; params = [] }
         | Select s ->
             let repr, params = T.seal ~handover s in
-            { repr = "(" ^ repr ^ ")"; params; pos = st.pos }
+            { st with repr = "(" ^ repr ^ ")"; params }
         | e ->
             Expr.build ~placeholder:D.placeholder ~handover st e
 
@@ -280,12 +301,13 @@ module Make (D : Driver.S) : S = struct
             (st', 1)
           else
             let st =
-              { repr = st.repr ^ ", " ^ st'.repr
+              { st' with
+                repr = st.repr ^ ", " ^ st'.repr
               ; params = st.params @ st'.params
               ; pos = st'.pos
               } in
             (st, i + 1) }
-        ({ blank_step with pos = st.pos }, 0)
+        ({ blank_step with pos = st.pos; aliases = st.aliases }, 0)
 
     let build_select ~handover st exprs =
       fst (join_exprs ~handover st exprs)
@@ -304,7 +326,8 @@ module Make (D : Driver.S) : S = struct
                 (if distinct then " DISTINCT " else " ")
                 st.repr
                 (Table.to_string t) in
-            { repr
+            { st with
+              repr
             ; params = st.params
             ; pos = st.pos
             }
@@ -318,7 +341,8 @@ module Make (D : Driver.S) : S = struct
                     (Table.to_string (Field.table a))
                     (Field.to_string a)
                     (Field.to_string b) in
-            { repr
+            { st with
+              repr
             ; params = st.params
             ; pos = st.pos
             }
@@ -341,14 +365,14 @@ module Make (D : Driver.S) : S = struct
               { st with repr = sprintf "GROUP BY (%s)" st.repr }
             end
         | None ->
-            { blank_step with pos = st.pos }
+            { blank_step with pos = st.pos; aliases = st.aliases }
 
     let build_order_by ~handover st = function
       | Some exprs ->
           let st = fst (join_exprs ~handover st exprs) in
           { st with repr = sprintf "ORDER BY (%s)" st.repr }
       | None ->
-          { blank_step with pos = st.pos }
+          { blank_step with pos = st.pos; aliases = st.aliases }
 
     open Sequoia_query_common
 

@@ -150,25 +150,29 @@ let rec build
     | Base.FDiv (e1, e2) -> build_binop "/" e1 e2
     | Base.LShift (e, i) ->
         let st = build ~placeholder ~handover st e in
-        { repr = sprintf "(%s) << %s" st.repr (placeholder st.pos)
+        { st with
+          repr = sprintf "(%s) << %s" st.repr (placeholder st.pos)
         ; params = st.params @ [Param.Int i]
         ; pos = st.pos + 1
         }
     | Base.RShift (e, i) ->
         let st = build ~placeholder ~handover st e in
-        { repr = sprintf "(%s) >> %s" st.repr (placeholder st.pos)
+        { st with
+          repr = sprintf "(%s) >> %s" st.repr (placeholder st.pos)
         ; params = st.params @ [Param.Int i]
         ; pos = st.pos + 1
         }
     | Base.Like (e, pat) ->
         let st = build ~placeholder ~handover st e in
-        { repr = sprintf "(%s) LIKE %s" st.repr (placeholder st.pos)
+        { st with
+          repr = sprintf "(%s) LIKE %s" st.repr (placeholder st.pos)
         ; params = st.params @ [Param.String pat]
         ; pos = st.pos + 1
         }
     | Base.Not_like (e, pat) ->
         let st = build ~placeholder ~handover st e in
-        { repr = sprintf "(%s) NOT LIKE %s" st.repr (placeholder st.pos)
+        { st with
+          repr = sprintf "(%s) NOT LIKE %s" st.repr (placeholder st.pos)
         ; params = st.params @ [Param.String pat]
         ; pos = st.pos + 1
         }
@@ -197,7 +201,8 @@ and build_binop
   fun ~placeholder ~handover st op e1 e2 ->
     let st1 = build ~placeholder ~handover st e1 in
     let st2 = build ~placeholder ~handover st1 e2 in
-    { repr = sprintf "(%s) %s (%s)" st1.repr op st2.repr
+    { st2 with
+      repr = sprintf "(%s) %s (%s)" st1.repr op st2.repr
     ; params = st1.params @ st2.params
     ; pos = st2.pos
     }
@@ -230,8 +235,8 @@ and build_arg_list
           end else
             sprintf "%s, %s" acc.repr st.repr in
         let params = acc.params @ st.params in
-        ({ repr; params; pos = st.pos }, i + 1))
-      ({ blank_step with pos = st.pos }, 0)
+        ({ st with repr; params; pos = st.pos }, i + 1))
+      ({ blank_step with pos = st.pos; aliases = st.aliases }, 0)
       l
 
 type ('a, 'b) expr = 'b t

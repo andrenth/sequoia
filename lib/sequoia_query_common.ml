@@ -19,21 +19,27 @@ let build_where
         let st = Expr.build ~placeholder ~handover st expr in
         { st with repr = sprintf "WHERE (%s)" st.repr }
     | None ->
-        { blank_step with pos = st.pos }
+        { blank_step with pos = st.pos; aliases = st.aliases }
 
 let build_limit placeholder st = function
   | Some (0, lim) ->
-      { repr = sprintf "LIMIT %s" (placeholder st.pos)
+      { st with
+        repr = sprintf "LIMIT %s" (placeholder st.pos)
       ; params = [Param.Int lim]
       ; pos = st.pos + 1
       }
   | Some (off, lim) ->
-      { repr = sprintf "LIMIT %s, %s" (placeholder st.pos) (placeholder (st.pos + 1))
+      let repr =
+        sprintf "LIMIT %s, %s"
+          (placeholder st.pos)
+          (placeholder (st.pos + 1)) in
+      { st with
+        repr
       ; params = [Param.Int off; Param.Int lim]
       ; pos = st.pos + 2
       }
   | None ->
-      { blank_step with pos = st.pos }
+      { blank_step with pos = st.pos; aliases = st.aliases }
 
 module UpdateDeleteExpr = struct
   type _ Expr.t +=
@@ -52,17 +58,17 @@ module UpdateDeleteExpr = struct
     fun ~placeholder ~handover st e ->
       match e with
       | Field (Field.Bool _ as fld, _) ->
-          { repr = Field.to_string fld; params = []; pos = st.pos }
+          { st with repr = Field.to_string fld; pos = st.pos }
       | Field (Field.Int _ as fld, _) ->
-          { repr = Field.to_string fld; params = []; pos = st.pos }
+          { st with repr = Field.to_string fld; pos = st.pos }
       | Field (Field.Float _ as fld, _) ->
-          { repr = Field.to_string fld; params = []; pos = st.pos }
+          { st with repr = Field.to_string fld; pos = st.pos }
       | Field (Field.String _ as fld, _) ->
-          { repr = Field.to_string fld; params = []; pos = st.pos }
+          { st with repr = Field.to_string fld; pos = st.pos }
       | Field (Field.Blob _ as fld, _) ->
-          { repr = Field.to_string fld; params = []; pos = st.pos }
+          { st with repr = Field.to_string fld; pos = st.pos }
       | Foreign ((fld, _), _) ->
-          { repr = Field.to_string fld; params = []; pos = st.pos }
+          { st with repr = Field.to_string fld; pos = st.pos }
       | e ->
           Expr.build ~placeholder ~handover st e
 end

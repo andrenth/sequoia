@@ -46,6 +46,10 @@ module type S = sig
     val build : handover:Sequoia_expr.handover -> build_step -> 'a t
              -> build_step
 
+    val (-->) : ('s source -> 'a t) -> string -> 's source -> 'a t
+
+    val alias : string -> 's source -> 'a t
+
     val field : ('t, 'a) Sequoia_field.t
              -> ('b, 'c, 't, 'd) steps
              -> 'b source
