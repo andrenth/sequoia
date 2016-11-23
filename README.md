@@ -103,7 +103,7 @@ LEFT JOIN
 WHERE
   user.name = book.author
 ORDER BY
-  user.name, book.title
+  user.name ASC, book.title DESC
 LIMIT ?
 ```
 
