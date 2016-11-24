@@ -19,8 +19,8 @@ let () =
   let%sql query, params =
     Mysql.(Expr.(Select.(Expr.(Vector.(OrderBy.Expr.(Vector.(
       from Team.table
-        |> left_join (belonging_to Team.owner)
-        |> right_join (having_one Project.leader)
+        |> left_join (that Team.owner)
+        |> right_join (this Project.leader)
         |> select
              [ field User.id
              ; (foreign_key Team.owner) --> "the_owner"
@@ -55,9 +55,9 @@ let () = print_endline "==="
 let () =
   let%sql query, params = Mysql.(Select.(Expr.(OrderBy.Expr.(Vector.(
     from TeamUser.table
-      |> left_join (belonging_to TeamUser.team)
-      |> right_join (belonging_to TeamUser.user)
-      |> inner_join (having_one Project.leader)
+      |> left_join (that TeamUser.team)
+      |> right_join (that TeamUser.user)
+      |> inner_join (this Project.leader)
       |> select ~distinct:true Expr.(Vector.
            [ field Team.name
            ; field User.name
@@ -74,8 +74,8 @@ let () = print_endline "==="
 let () =
   let query, params = Mysql.(Expr.(Select.(Expr.(OrderBy.Expr.(Vector.(
     let src = from TeamUser.table in
-    let src = left_join (belonging_to TeamUser.user There) src in
-    let src = left_join (belonging_to TeamUser.team (Skip There)) src in
+    let src = left_join (that TeamUser.user There) src in
+    let src = left_join (that TeamUser.team (Skip There)) src in
     let sel =
       select ~distinct:true Expr.(Vector.[
         field User.name There; field Team.name (Skip There)
@@ -94,8 +94,8 @@ let () = print_endline "==="
 let () =
   let%sql query, params = Mysql.(Expr.(Select.(
     let src = from Team.table in
-    let src = inner_join (belonging_to Team.owner There) src in
-    let src = inner_join (having_one Project.leader There) src in
+    let src = inner_join (that Team.owner There) src in
+    let src = inner_join (this Project.leader There) src in
     let sel =
       select Expr.(Vector.[
         field Team.name (Skip (Skip There)); field Project.title There
@@ -111,8 +111,8 @@ let () = print_endline "==="
 let () =
   let query, params = Mysql.(Expr.(Select.(
     let src = from User.table in
-    let src = right_join (having_one Team.owner There) src in
-    let src = right_join (having_one Project.leader (Skip There)) src in
+    let src = right_join (this Team.owner There) src in
+    let src = right_join (this Project.leader (Skip There)) src in
     let sel = select Expr.(Vector.
       [ field Team.id There
       ; field Team.name There

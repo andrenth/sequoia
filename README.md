@@ -55,9 +55,9 @@ A `SELECT` query can be created like this:
 let query, params =
 	Mysql.(Expr.(Select.(Expr.(Vector.(OrderBy.Expr.(Vector.(
     from BookUser.table
-      |> left_join (belonging_to BookUser.user There)
-      |> left_join (belonging_to BookUser.book (Skip There))
-      |> left_join (belonging_to Book.publisher (Skip There))
+      |> left_join (that BookUser.user There)
+      |> left_join (that BookUser.book (Skip There))
+      |> left_join (that Book.publisher (Skip There))
       |> select
            [ field User.name There
            ; field Book.title (Skip (Skip There))
@@ -203,9 +203,9 @@ end
 let%sql query, params =
   Mysql.(Expr.(Select.(Expr.(Vector.(OrderBy.Expr.(Vector.(
     from BookUser.table
-      |> left_join (belonging_to BookUser.user)
-      |> left_join (belonging_to BookUser.book)
-      |> left_join (belonging_to Book.publisher)
+      |> left_join (that BookUser.user)
+      |> left_join (that BookUser.book)
+      |> left_join (that Book.publisher)
       |> select
            [ field User.name
            ; field Book.title
@@ -230,9 +230,12 @@ In the future it might be extended to be more comprehensive.
 
 #### On `JOIN`s
 
-You have probably noticed the use of `belonging_to` in joins to refer to
-a foreign key -> primary key relationship. Sequoia also offers `having_one`
-for relationships in the reverse direction.
+You have probably noticed the use of `that` in the join expressions above.
+It is used to create a join with the table that is referenced by the given
+foreign key. For example, `left_join (that BookUser.user)` creates a join with
+the `User` table, because the `BookUser.user` foreign key references
+a field from `User`, namely `User.id`. Similarly, Sequoia also offers `this`
+for joins with the table that contains the foreign key.
 
 This behavior of requiring primary and foreign key pairs is by design, because
 it allows for some extra validation on whether fields used in the join condition

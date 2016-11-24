@@ -91,14 +91,12 @@ module type S = sig
           -> ('s1, 't1, 't, 's2) join_steps
           -> ('t, 't) Field.foreign_key * ('s1, 't1, 't, 's2) join_steps
 
-  val having_one : ('t1, 't2) Field.foreign_key
-                -> ('s1, 't1, 't2, 's2) join_steps
-                -> ('t1, 't2) Field.foreign_key *
-                   ('s1, 't1, 't2, 's2) join_steps
-  val belonging_to : ('t1, 't2) Field.foreign_key
-                  -> ('s1, 't2, 't1, 's2) join_steps
-                  -> ('t2, 't1) Field.foreign_key *
-                     ('s1, 't2, 't1, 's2) join_steps
+  val this : ('t1, 't2) Field.foreign_key
+          -> ('s1, 't1, 't2, 's2) join_steps
+          -> ('t1, 't2) Field.foreign_key * ('s1, 't1, 't2, 's2) join_steps
+  val that : ('t1, 't2) Field.foreign_key
+          -> ('s1, 't2, 't1, 's2) join_steps
+          -> ('t2, 't1) Field.foreign_key * ('s1, 't2, 't1, 's2) join_steps
 
   val where : ('a source -> bool Expr.t) -> 'a t -> 'a t
   val group_by : ?having:('s source -> bool Expr.t)
@@ -513,8 +511,8 @@ module Make (D : Driver.S) : S = struct
   let inner_join (rel, steps) src = join Inner rel steps src
 
   let self fld1 fld2 steps = ((fld1, fld2), steps)
-  let having_one rel steps = (rel, steps)
-  let belonging_to (fk, pk) steps = ((pk, fk), steps)
+  let this rel steps = (rel, steps)
+  let that (fk, pk) steps = ((pk, fk), steps)
 
   let where expr (S stmt) =
     S { stmt with where = Some (expr stmt.source) }

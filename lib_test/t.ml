@@ -31,8 +31,8 @@ let () =
   let open Tables in
   print_endline Sequoia.(
     from Team.table
-      |> belonging_to Team.owner There
-      |> having_one Project.leader There
+      |> that Team.owner There
+      |> this Project.leader There
       |> select
           |> fields [field User.id; field User.name] (Skip There)
           |> fields [field Team.id; field Team.name] (Skip (Skip There))
@@ -50,9 +50,9 @@ let () =
   let open Tables in
   print_endline Sequoia.(
     from TeamUser.table
-      |> belonging_to TeamUser.team  There
-      |> belonging_to TeamUser.user  (Skip There)
-      |> having_one   Project.leader (Skip There)
+      |> that TeamUser.team  There
+      |> that TeamUser.user  (Skip There)
+      |> this   Project.leader (Skip There)
       |> select
           |> fields [field Team.name] There
           |> fields [field User.name] (Skip (Skip There))
@@ -63,8 +63,8 @@ let () =
   let open Tables in
   print_endline Sequoia.(
     let src = from TeamUser.table in
-    let src = belonging_to TeamUser.user There src in
-    let src = belonging_to TeamUser.team (Skip There) src in
+    let src = that TeamUser.user There src in
+    let src = that TeamUser.team (Skip There) src in
     let sel = select src in
     let sel = fields [field User.name] There sel in
     let sel = fields [field Team.name] (Skip There) sel in
@@ -77,8 +77,8 @@ let () =
   let open Tables in
   print_endline Sequoia.(
     let src = from Team.table in
-    let src = belonging_to Team.owner There src in
-    let src = having_one Project.leader There src in
+    let src = that Team.owner There src in
+    let src = this Project.leader There src in
     let sel = select src in
     let sel = fields [field Team.name] (Skip (Skip There)) sel in
     let sel = fields [field Project.title] There sel in
@@ -89,8 +89,8 @@ let () =
   let open Tables in
   print_endline Sequoia.(
     let src = from User.table in
-    let src = having_one Team.owner There src in
-    let src = having_one Project.leader (Skip There) src in
+    let src = this Team.owner There src in
+    let src = this Project.leader (Skip There) src in
     let sel = select src in
     let sel = fields [field Team.id; field Team.name] There sel in
     let sel = fields [field User.id; field User.name] (Skip (Skip There)) sel in

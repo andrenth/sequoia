@@ -114,7 +114,7 @@ let rec map_query st loc = function
       st.tables := [t];
       e
 
-  (* {left,right,inner}_join (belonging_to Table.fk) *)
+  (* {left,right,inner}_join (that Table.fk) *)
   | { pexp_desc =
       Pexp_apply
         (({ pexp_desc = Pexp_ident { txt = Lident join_fun } } as join),
@@ -122,7 +122,7 @@ let rec map_query st loc = function
            ({ pexp_desc =
              Pexp_apply
                (({ pexp_desc =
-                   Pexp_ident { txt = Lident "belonging_to" } } as rel),
+                   Pexp_ident { txt = Lident "that" } } as rel),
                 (([(Nolabel,
                     { pexp_desc =
                       Pexp_ident
@@ -145,7 +145,7 @@ let rec map_query st loc = function
                Pexp_apply
                  (rel, snoc (Nolabel, steps) args) })]) }
 
-  (* {left,right,inner}_join (having_one Table.fk) *)
+  (* {left,right,inner}_join (this Table.fk) *)
   | { pexp_desc =
       Pexp_apply
         (({ pexp_desc = Pexp_ident { txt = Lident join_fun } } as join),
@@ -153,7 +153,7 @@ let rec map_query st loc = function
            ({ pexp_desc =
              Pexp_apply
                (({ pexp_desc =
-                   Pexp_ident { txt = Lident "having_one" } } as rel),
+                   Pexp_ident { txt = Lident "this" } } as rel),
                 (([(Nolabel,
                     { pexp_desc =
                       Pexp_ident

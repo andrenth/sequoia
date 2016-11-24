@@ -100,14 +100,14 @@ module type S = sig
           -> ('s1, 't1, 't, 's2) join_steps
           -> ('t, 't) Sequoia_field.foreign_key * ('s1, 't1, 't, 's2) join_steps
 
-  val having_one : ('t1, 't2) Sequoia_field.foreign_key
-                -> ('s1, 't1, 't2, 's2) join_steps
-                -> ('t1, 't2) Sequoia_field.foreign_key *
-                   ('s1, 't1, 't2, 's2) join_steps
-  val belonging_to : ('t1, 't2) Sequoia_field.foreign_key
-                  -> ('s1, 't2, 't1, 's2) join_steps
-                  -> ('t2, 't1) Sequoia_field.foreign_key *
-                     ('s1, 't2, 't1, 's2) join_steps
+  val this : ('t1, 't2) Sequoia_field.foreign_key
+          -> ('s1, 't1, 't2, 's2) join_steps
+          -> ('t1, 't2) Sequoia_field.foreign_key *
+             ('s1, 't1, 't2, 's2) join_steps
+  val that : ('t1, 't2) Sequoia_field.foreign_key
+          -> ('s1, 't2, 't1, 's2) join_steps
+          -> ('t2, 't1) Sequoia_field.foreign_key *
+             ('s1, 't2, 't1, 's2) join_steps
 
   val where : ('a source -> bool Expr.t) -> 'a t -> 'a t
   val group_by : ?having:('s source -> bool Expr.t)

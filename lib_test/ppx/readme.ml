@@ -43,9 +43,9 @@ let print_params ps =
 let%sql query, params =
   Mysql.(Expr.(Select.(Expr.(Vector.(OrderBy.Expr.(Vector.(
     from BookUser.table
-      |> left_join (belonging_to BookUser.user)
-      |> left_join (belonging_to BookUser.book)
-      |> left_join (belonging_to Book.publisher)
+      |> left_join (that BookUser.user)
+      |> left_join (that BookUser.book)
+      |> left_join (that Book.publisher)
       |> select
            [ field User.name
            ; field Book.title
