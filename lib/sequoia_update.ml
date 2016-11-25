@@ -234,11 +234,7 @@ module Make (D : Driver.S) : S = struct
       build_where ~placeholder:D.placeholder ~handover updates_st where in
     let order_by_st = build_order_by ~handover where_st order_by in
     let limit_st = build_limit D.placeholder order_by_st limit in
-    let s =
-      sprintf "UPDATE %s SET%s"
-        (Table.to_string table)
-        updates_st.repr
-        in
+    let s = sprintf "UPDATE %s SET%s" (Table.name table) updates_st.repr in
     let params = updates_st.params
                @ where_st.params
                @ order_by_st.params

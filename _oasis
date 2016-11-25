@@ -12,8 +12,8 @@ Plugins:      DevFiles (0.4), META (0.4)
 Library "sequoia"
   FindlibName:      sequoia
   Path:             lib
-  Modules:          Sequoia,
-                    Sequoia_common,
+  Modules:          Sequoia
+  InternalModules:  Sequoia_common,
                     Sequoia_delete,
                     Sequoia_driver,
                     Sequoia_expr,

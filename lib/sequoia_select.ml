@@ -381,7 +381,7 @@ module Make (D : Driver.S) : S = struct
               sprintf "SELECT%s%s\nFROM %s"
                 (if distinct then " DISTINCT " else " ")
                 st.repr
-                (Table.to_string t) in
+                (Table.name t) in
             { st with
               repr
             ; params = st.params
@@ -394,7 +394,7 @@ module Make (D : Driver.S) : S = struct
                 ^ "\n"
                 ^ sprintf "%s JOIN %s ON %s = %s"
                     (join_to_string join)
-                    (Table.to_string (Field.table a))
+                    (Table.name (Field.table a))
                     (Field.to_string a)
                     (Field.to_string b) in
             { st with

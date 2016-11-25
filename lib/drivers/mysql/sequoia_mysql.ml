@@ -105,21 +105,21 @@ module Field = struct
     | fld -> table fld
 
   let to_string : type a b. (a, b) t -> string = function
-    | Time (name, table) -> sprintf "%s.%s" table.Table.name name
-    | Timestamp (name, table) -> sprintf "%s.%s" table.Table.name name
-    | Date (name, table) -> sprintf "%s.%s" table.Table.name name
-    | Datetime (name, table) -> sprintf "%s.%s" table.Table.name name
-    | Enum (name, table, _) -> sprintf "%s.%s" table.Table.name name
-    | Null.Time (name, table) -> sprintf "%s.%s" table.Table.name name
-    | Null.Timestamp (name, table) -> sprintf "%s.%s" table.Table.name name
-    | Null.Date (name, table) -> sprintf "%s.%s" table.Table.name name
-    | Null.Datetime (name, table) -> sprintf "%s.%s" table.Table.name name
-    | Null.Enum (name, table, _) -> sprintf "%s.%s" table.Table.name name
+    | Time (name, table) -> sprintf "%s.%s" (Table.name table) name
+    | Timestamp (name, table) -> sprintf "%s.%s" (Table.name table) name
+    | Date (name, table) -> sprintf "%s.%s" (Table.name table) name
+    | Datetime (name, table) -> sprintf "%s.%s" (Table.name table) name
+    | Enum (name, table, _) -> sprintf "%s.%s" (Table.name table) name
+    | Null.Time (name, table) -> sprintf "%s.%s" (Table.name table) name
+    | Null.Timestamp (name, table) -> sprintf "%s.%s" (Table.name table) name
+    | Null.Date (name, table) -> sprintf "%s.%s" (Table.name table) name
+    | Null.Datetime (name, table) -> sprintf "%s.%s" (Table.name table) name
+    | Null.Enum (name, table, _) -> sprintf "%s.%s" (Table.name table) name
     | other -> to_string other
 
   let to_string fld =
     let t = table fld in
-    sprintf "%s.%s" (t.Table.name) (name fld)
+    sprintf "%s.%s" (Table.name t) (name fld)
 
   let time table name = Time (name, table)
   let timestamp table name = Timestamp (name, table)

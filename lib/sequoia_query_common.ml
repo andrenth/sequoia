@@ -142,7 +142,7 @@ module InsertReplace = struct
     let s =
       sprintf "%s INTO %s (%s) VALUES\n%s"
         query
-        (Table.to_string table)
+        (Table.name table)
         (join_fields fields)
         (placeholders ~placeholder values) in
     s, params_of_values values

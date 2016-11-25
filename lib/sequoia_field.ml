@@ -55,7 +55,7 @@ let table : type u a. (u, a) t -> u Table.t = function
 
 let to_string fld =
   let t = table fld in
-  sprintf "%s.%s" (t.Table.name) (name fld)
+  sprintf "%s.%s" (Table.name t) (name fld)
 
 let foreign_key table name ~references = (Int (name, table), references)
 

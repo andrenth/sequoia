@@ -31,7 +31,7 @@ module Make (D : Driver.S) : S = struct
   let seal ~handover (D { table; where }) =
     let st = { blank_step with pos = 1 } in
     let st = build_where ~placeholder:D.placeholder ~handover st where in
-    let s = sprintf "DELETE FROM %s" (Table.to_string table) in
+    let s = sprintf "DELETE FROM %s" (Table.name table) in
     let repr = join_lines [ s; st.repr ] in
     repr, st.params
 
