@@ -47,8 +47,6 @@ module type S = sig
 
     type 'a t = 'a Expr.t
 
-    val build : handover:Expr.handover -> build_step -> 'a t -> build_step
-
     val (-->) : ('s source -> 'a t) -> string -> 's source -> 'a t
     val alias : string -> 's source -> 'a t
     val field : ('t, 'a) Field.t -> ('b, 'c, 't, 'd) steps -> 'b source -> 'a t
@@ -61,6 +59,8 @@ module type S = sig
     type ('s, 'a) mk = 's source -> 'a t
 
     module Vector : Vector.S with type ('s, 'a) elem := ('s, 'a) mk
+
+    val build : handover:Expr.handover -> build_step -> 'a t -> build_step
 
     val vectormk_to_vector : 's source -> ('s, 'a, 'n) Vector.t
                           -> ('s, 'a, 'n) Expr.Vector.t

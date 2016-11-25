@@ -12,8 +12,8 @@ Plugins:      DevFiles (0.4), META (0.4)
 Library "sequoia"
   FindlibName:      sequoia
   Path:             lib
-  Modules:          Sequoia
-  InternalModules:  Sequoia_common,
+  Modules:          Sequoia,
+                    Sequoia_common,
                     Sequoia_delete,
                     Sequoia_driver,
                     Sequoia_expr,
@@ -93,3 +93,10 @@ Executable "readme_test"
   MainIs:           readme.ml
   BuildDepends:     sequoia, sequoia.mysql, sequoia.ppx
   CompiledObject:   best
+
+Document "sequoia"
+  Title:                Sequoia documentation
+  Type:                 ocamlbuild (0.4)
+  BuildTools:           ocamldoc
+  XOCamlbuildPath:      lib
+  XOCamlbuildLibraries: sequoia

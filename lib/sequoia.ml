@@ -57,10 +57,22 @@ module type S = sig
     end
   end
 
+	val table : string -> (module TABLE)
+
   module MakeTable (T: NAMED) : TABLE
 end
 
-module Make (D : Driver.S) = struct
+module Make (D : Driver.S) : S
+  with type 't Table.t = 't Sequoia_table.t
+   and type ('t, 'a) Field.t = ('t, 'a) Sequoia_field.t
+   and type ('t1, 't2) Field.foreign_key = ('t1, 't2) Sequoia_field.foreign_key
+   and type 'a Lit.t = 'a Sequoia_lit.t
+   and type 'a Expr.t = 'a Sequoia_expr.t
+   and type 'a Expr.cast = 'a Sequoia_expr.cast
+   and type Expr.handover = Sequoia_expr.handover
+   and type Param.t = Sequoia_param.t
+   and module Lit.Vector = Sequoia_lit.Vector =
+struct
   module Param  = Sequoia_param
   module Lit    = Sequoia_lit
   module Expr   = Sequoia_expr
