@@ -297,9 +297,10 @@ let query, params = Mysql.(Expr.(Delete.(Expr.(
 ## Issues and limitations
 
 * No arbitrary expressions on joins;
-* All table definitions must be in the same file (though queries can be
-  defined in separate files);
-* `INSERT` queries don't forbit absent non-NULL fields;
+* All table definitions must be in the same file;
+* Queries can be defined in separate files but this is implemented in a
+  hackish way (`Marshal` dump files in `/tmp`);
+* `INSERT` queries don't forbid absent non-NULL fields;
 * No documentation other than this file (yet).
 
 ## Acknowledgements
