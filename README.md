@@ -301,7 +301,7 @@ let query, params = Mysql.(Expr.(Delete.(Expr.(
 * Queries can be defined in separate files but this is implemented in a
   hackish way (`Marshal` dump files in `/tmp`);
 * `INSERT` queries don't forbid absent non-NULL fields;
-* No documentation other than this file (yet).
+* No ocamldoc for drivers (yet).
 
 ## Acknowledgements
 
