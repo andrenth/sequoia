@@ -1,7 +1,7 @@
 OASISFormat:  0.4
 Name:         sequoia
 OCamlVersion: >= 4.04.0
-Version:      0.0.0
+Version:      0.1.0
 Synopsis:     Type-safe SQL library and syntax extension
 Authors:      Andre Nathan
 License:      MIT

@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: d647bc9d0b5aae06bd63dc3920aa27c9)
-version = "0.0.0"
+# DO NOT EDIT (digest: 1c4e6c6d61233462afdc0f30b482360f)
+version = "0.1.0"
 description = "Type-safe SQL library and syntax extension"
 archive(byte) = "sequoia.cma"
 archive(byte, plugin) = "sequoia.cma"
@@ -8,7 +8,7 @@ archive(native) = "sequoia.cmxa"
 archive(native, plugin) = "sequoia.cmxs"
 exists_if = "sequoia.cma"
 package "sqlite" (
- version = "0.0.0"
+ version = "0.1.0"
  description = "Type-safe SQL library and syntax extension"
  requires = "sequoia"
  archive(byte) = "sequoia_sqlite.cma"
@@ -19,7 +19,7 @@ package "sqlite" (
 )
 
 package "ppx" (
- version = "0.0.0"
+ version = "0.1.0"
  description = "Type-safe SQL library and syntax extension"
  requires = "sequoia"
  archive(byte) = "sequoia_ppx.cma"
@@ -31,7 +31,7 @@ package "ppx" (
 )
 
 package "mysql" (
- version = "0.0.0"
+ version = "0.1.0"
  description = "Type-safe SQL library and syntax extension"
  requires = "sequoia unix"
  archive(byte) = "sequoia_mysql.cma"
