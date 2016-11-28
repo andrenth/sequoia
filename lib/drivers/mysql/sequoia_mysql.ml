@@ -1,3 +1,5 @@
+(** Sequoia MySQL driver *)
+
 open Printf
 open Sequoia_common
 

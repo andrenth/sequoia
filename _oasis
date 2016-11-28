@@ -100,3 +100,17 @@ Document "sequoia"
   BuildTools:           ocamldoc
   XOCamlbuildPath:      lib
   XOCamlbuildLibraries: sequoia
+
+Document "sequoia_mysql"
+  Title:                Sequoia MySQL driver documentation
+  Type:                 ocamlbuild (0.4)
+  BuildTools:           ocamldoc
+  XOCamlbuildPath:      lib/drivers/mysql
+  XOCamlbuildLibraries: sequoia.mysql
+
+Document "sequoia_sqlite"
+  Title:                Sequoia SQLite driver documentation
+  Type:                 ocamlbuild (0.4)
+  BuildTools:           ocamldoc
+  XOCamlbuildPath:      lib/drivers/sqlite
+  XOCamlbuildLibraries: sequoia.sqlite

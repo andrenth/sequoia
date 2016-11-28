@@ -1,3 +1,5 @@
+(** Sequoia SQLite driver *)
+
 open Printf
 open Sequoia_common
 
