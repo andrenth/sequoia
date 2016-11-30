@@ -1,8 +1,8 @@
 opam-version: "1.2"
 name: "sequoia"
 version: "0.1.0"
-maintainer: "Andre Nathan <andre@digirati.com.br>"
-authors: "Andre Nathan <andre@digirati.com.br>"
+maintainer: "Andre Nathan <andrenth@gmail.com>"
+authors: "Andre Nathan <andrenth@gmail.com>"
 homepage: "https://github.com/andrenth/sequoia"
 bug-reports: "https://github.com/andrenth/sequoia"
 license: "MIT"
@@ -15,4 +15,5 @@ install: [make "install"]
 remove: ["ocamlfind" "remove" "sequoia"]
 depends: [
   "ocamlfind" {build}
+  "ppx_tools"
 ]
