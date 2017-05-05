@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 0617240eb8255a46188c306ace538e4a) *)
+(* DO NOT EDIT (digest: ec034008f3ec93440974ce452c3b17d6) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -746,6 +746,9 @@ module MyOCamlbuildBase = struct
 (* # 110 "src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
 
 
+  let env_filename = Pathname.basename BaseEnvLight.default_filename
+
+
   let dispatch_combine lst =
     fun e ->
       List.iter
@@ -878,7 +881,7 @@ module MyOCamlbuildBase = struct
 end
 
 
-# 881 "myocamlbuild.ml"
+# 884 "myocamlbuild.ml"
 open Ocamlbuild_plugin;;
 let package_default =
   {
@@ -904,7 +907,7 @@ let conf = {MyOCamlbuildFindlib.no_automatic_syntax = false}
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default conf package_default;;
 
-# 908 "myocamlbuild.ml"
+# 911 "myocamlbuild.ml"
 (* OASIS_STOP *)
 flag ["ocaml"; "compile"; "ppx_sequoia"] &
      S [A "-ppx"; A ("lib/ppx/ppx_sequoia.native")];
