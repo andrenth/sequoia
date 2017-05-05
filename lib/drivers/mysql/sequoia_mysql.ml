@@ -198,7 +198,8 @@ let table name =
   end : MYSQL_TABLE)
 
 type time_unit
-  = Seconds
+  = Microseconds
+  | Seconds
   | Minutes
   | Hours
   | Days
@@ -208,6 +209,7 @@ type time_unit
   | Years
 
 let string_of_time_unit = function
+  | Microseconds -> "MICROSECOND"
   | Seconds -> "SECOND"
   | Minutes -> "MINUTE"
   | Hours -> "HOUR"
@@ -359,6 +361,7 @@ module Expr = struct
     | Sum : int t * bool -> int t
     | Tan : float t -> float t
     | TimeFn : [< `Time | `Datetime] time t -> [`Time] time t
+    | Timestampdiff : time_unit * 'k time t * 'k time t -> int t
     | Trim : string t -> string t
     | Uncompress : string t -> string t
     | Utc_date : string t
@@ -483,6 +486,7 @@ module Expr = struct
   let sum f d = fun src -> Sum (f src, d)
   let tan f = fun src -> Tan (f src)
   let time_of : ('s M.Select.source -> [< `Time | `Datetime] time t) -> 's M.Select.source -> [`Time] time t = fun f src -> TimeFn (f src)
+  let timestampdiff u f g = fun src -> Timestampdiff (u, f src, g src)
   let trim f = fun src -> Trim (f src)
   let uncompress f = fun src -> Uncompress (f src)
   let utc_date () = fun src -> Utc_date
@@ -625,6 +629,9 @@ module Expr = struct
       | Sum (e, false) -> fn "SUM(" [e] ")"
       | Tan e -> fn "TAN(" [e] ")"
       | TimeFn e -> fn "TIME(" [e] ")"
+      | Timestampdiff (u, e1, e2) ->
+          let s = string_of_time_unit u in
+          fn (sprintf "TIMESTAMPDIFF(%s, " s) [e1; e2] ")"
       | Trim e -> fn "TRIM(" [e] ")"
       | Uncompress e -> fn "UNCOMPRESS(" [e] ")"
       | Cast (e, Time) ->
