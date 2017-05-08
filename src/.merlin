@@ -1,0 +1,3 @@
+B ../_build/default/src
+FLG -open Sequoia__ -w -40
+S .

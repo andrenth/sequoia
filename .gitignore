@@ -5,3 +5,4 @@ setup.log
 *.native
 *.byte
 *.docdir
+*.install

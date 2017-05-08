@@ -1,0 +1,7 @@
+B ../_build/default/mysql
+B ../_build/default/src
+B ../_build/default/test
+FLG -ppx "../_build/.ppx/default/sequoia-ppx/ppx.exe --as-ppx"
+FLG -w -40
+PKG unix
+S .

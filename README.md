@@ -17,7 +17,7 @@ Tables are defined via OCaml modules, each of its fields corresponding to
 a value:
 
 ```ocaml
-module Mysql = Sequoia_mysql
+open Sequoia_mysql
 
 module User = struct
   include (val Mysql.table "user")
@@ -171,7 +171,7 @@ used to define tables and query expressions, respectively.
 The example above, with the sintax extension, would look like this:
 
 ```ocaml
-module Mysql = Sequoia_mysql
+open Sequoia_mysql
 
 module%sql User = struct
   include (val Mysql.table "user")

@@ -1,0 +1,6 @@
+(jbuild_version 1)
+
+(library
+ ((name sequoia_sqlite)
+   (public_name sequoia-sqlite)
+   (libraries (sequoia))))

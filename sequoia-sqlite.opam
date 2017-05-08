@@ -1,0 +1,20 @@
+opam-version: "1.2"
+version: "0.1.0"
+maintainer: "Andre Nathan <andrenth@gmail.com>"
+authors: "Andre Nathan <andrenth@gmail.com>"
+homepage: "https://github.com/andrenth/sequoia"
+bug-reports: "https://github.com/andrenth/sequoia"
+license: "MIT"
+dev-repo: "https://github.com/andrenth/sequoia"
+available: [ ocaml-version >= "4.04.0" ]
+build: [
+  ["jbuilder" "build"
+    "--only-packages" "sequoia-sqlite"
+    "--root" "."
+    "-j" jobs
+    "@install"]
+]
+depends: [
+  "jbuilder"
+  "sequoia"
+]

@@ -1,0 +1,13 @@
+(jbuild_version 1)
+
+(alias
+ ((name runtest)
+  (deps (t.exe))))
+
+(executable
+ ((name t)
+  (libraries
+   (sequoia
+    sequoia-mysql
+    sequoia-ppx))
+  (preprocess (pps (sequoia-ppx)))))
