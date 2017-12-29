@@ -1,0 +1,5 @@
+B ../_build/default/postgresql
+B ../_build/default/src
+FLG -open Sequoia_postgresql -w -40
+PKG unix
+S .
