@@ -1,4 +1,4 @@
 B ../_build/default/sqlite
 B ../_build/default/src
 FLG -open Sequoia_sqlite -w -40
-S .
+S ../src

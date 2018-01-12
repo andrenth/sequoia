@@ -6,4 +6,5 @@ PKG compiler-libs.common
 PKG ocaml-compiler-libs
 PKG ocaml-migrate-parsetree
 PKG ppx_tools_versioned
-S .
+PKG result
+S ../src

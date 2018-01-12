@@ -4,6 +4,15 @@
  ((name runtest)
   (deps (t.exe))))
 
+(rule
+ ((targets (t.ml))
+   (deps
+    (t.cppo.ml
+     (glob_files tables/*.ml)
+     (glob_files queries/*.ml)))
+    (action
+     (chdir ${ROOT} (run ${bin:cppo} -V OCAML:${ocaml_version} ${<} -o ${@})))))
+
 (executable
  ((name t)
   (libraries

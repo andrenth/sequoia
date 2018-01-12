@@ -1,6 +1,5 @@
 _build/
-setup.data
-setup.log
+.merlin
 *.swp
 *.native
 *.byte
