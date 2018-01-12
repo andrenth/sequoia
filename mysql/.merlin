@@ -1,5 +1,0 @@
-B ../_build/default/mysql
-B ../_build/default/src
-FLG -open Sequoia_mysql -w -40
-PKG unix
-S ../src
