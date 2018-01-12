@@ -15,23 +15,12 @@ type state =
   ; references : (string * string, string * string) Hashtbl.t
   }
 
-let dump_file =
-  let len = Array.length Sys.argv in
-  let file =
-    Sys.argv.(len - 1)
-    |> Filename.dirname
-    |> String.split_on_char '/'
-    |> String.concat "_" in
-  sprintf "/tmp/sequoia-%s-state.dump" file
+let global_references = ref None
 
 let load_state () =
-  try
-    let ch = open_in_bin dump_file in
-    let st = { tables = ref []; references = Marshal.from_channel ch } in
-    close_in ch;
-    Some st
-  with _ ->
-    None
+  match !global_references with
+  | Some references -> Some { tables = ref []; references }
+  | None -> None
 
 let error loc msg =
   raise @@ Location.Error (Location.error ~loc msg)
@@ -412,9 +401,7 @@ let sql_mapper references _config _cookies =
                      ; pmb_expr = { pmod_desc = Pmod_structure strs }
                      ; pmb_loc } as m) }] ->
                 map_module name references pmb_loc strs;
-                let ch = open_out_bin dump_file in
-                Marshal.to_channel ch references [];
-                close_out ch;
+                global_references := Some references;
                 let str = Str.module_ m in
                 Ast_helper.with_default_loc loc (fun () -> str)
             | PStr
