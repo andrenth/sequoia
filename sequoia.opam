@@ -15,5 +15,5 @@ build: [
     "@install"]
 ]
 depends: [
-  "jbuilder"
+  "jbuilder" {build}
 ]
