@@ -8,14 +8,11 @@ license: "MIT"
 dev-repo: "https://github.com/andrenth/sequoia"
 available: [ ocaml-version >= "4.04.0" ]
 build: [
-  ["jbuilder" "build"
-    "--only-packages" "sequoia-ppx"
-    "--root" "."
-    "-j" jobs
-    "@install"]
+  ["jbuilder" "build" "-p" name "-j" jobs]
 ]
+build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
 depends: [
-  "jbuilder"
+  "jbuilder" {build}
   "sequoia"
   "ppx_tools_versioned"
   "ocaml-migrate-parsetree"

@@ -8,13 +8,10 @@ license: "MIT"
 dev-repo: "https://github.com/andrenth/sequoia"
 available: [ ocaml-version >= "4.04.0" ]
 build: [
-  ["jbuilder" "build"
-    "--only-packages" "sequoia-sqlite"
-    "--root" "."
-    "-j" jobs
-    "@install"]
+  ["jbuilder" "subst" "-n" name] {pinned}
 ]
+build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
 depends: [
-  "jbuilder"
+  "jbuilder" {build}
   "sequoia"
 ]
