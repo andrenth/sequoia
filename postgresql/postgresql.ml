@@ -3,7 +3,7 @@
 open Printf
 open Sequoia.Common
 
-module D = struct let placeholder _ = "?" end
+module D = struct let placeholder n = Printf.sprintf "$%d" n end
 module M = Sequoia.Make (D)
 
 include (M : module type of M
