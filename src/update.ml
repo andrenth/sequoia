@@ -98,7 +98,7 @@ module Make (D : Driver.S) : S = struct
       type ('t, 'a) elem = ('t, 'a) mk
     end)
 
-    let rec vectormk_to_vector
+    (* let rec vectormk_to_vector
       : type a n. 't Table.t
                -> ('t, a, n) Vector.t
                -> ('t, a, n) Vec.t =
@@ -110,7 +110,7 @@ module Make (D : Driver.S) : S = struct
             []
         | f::rest ->
             let open Vec in
-            (f table) :: vectormk_to_vector table rest
+            (f table) :: vectormk_to_vector table rest *)
   end
 
   module UpdateVec = Vector.Make(struct
@@ -167,7 +167,7 @@ module Make (D : Driver.S) : S = struct
       let vec = OrderBy.vectormk_to_vector stmt.table bl in
       U { stmt with order_by = Some vec }
 
-  let build_updates ~handover st table updates =
+  let build_updates ~handover st _table updates =
     let fold
       : type t a b. build_step * int
                  -> (t, a) Field.t * (b, a) Expr.expr

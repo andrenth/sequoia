@@ -1,6 +1,6 @@
 let q8 =
   let query, params =
-    Mysql.(Expr.(Update.(Vector.(Expr.(Vector.(OrderBy.Expr.(Vector.(
+    Mysql.(Expr.(Update.(Vector.(Expr.(OrderBy.Expr.(Vector.(
       update User.table
         ~set:
           [ User.name, string "John Doe"
@@ -10,5 +10,5 @@ let q8 =
       |> order_by [desc (field User.name)]
       |> limit 10
       |> seal
-    )))))))) in
+    ))))))) in
   query, params

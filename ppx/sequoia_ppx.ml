@@ -70,7 +70,7 @@ let rec map_expr_list loc f = function
       let e = map_expr_list pexp_loc f e in
       { expr with pexp_desc = Pexp_open (ovr, loc, e) }
 
-  | e ->
+  | _e ->
       error loc "unexpected element in select expression"
 
 let add_table t u ts =
@@ -104,7 +104,7 @@ let rec map_query st loc = function
   (* from MyTable.table *)
   | { pexp_desc =
       Pexp_apply ({ pexp_desc =
-                    Pexp_ident { txt = Lident "from"; loc } },
+                    Pexp_ident { txt = Lident "from" } },
                   [(_, { pexp_desc =
                          Pexp_ident { txt = Ldot (Lident t, _) } })]) } as e ->
       st.tables := [t];
@@ -183,7 +183,7 @@ let rec map_query st loc = function
                 (([ (Nolabel,
                      { pexp_desc =
                        Pexp_ident
-                         { txt = Ldot (Lident tbl, fld) ; loc } })
+                         { txt = Ldot (Lident tbl, _fld) ; loc } })
                   ; _
                   ]) as args)) } as join_args))]) } as e
         when join_fun = "left_join"
@@ -261,7 +261,7 @@ let rec map_query st loc = function
                      Pexp_ident { txt = Lident fn; loc } } as fld),
                   ([ (Nolabel,
                       { pexp_desc =
-                        Pexp_ident { txt = Ldot (Lident table, field) } })
+                        Pexp_ident { txt = Ldot (Lident table, _field) } })
                   ] as args)) } as e
         when fn = "field"|| fn = "foreign_key" ->
       let steps = build_steps (index loc table !(st.tables)) in
@@ -283,7 +283,7 @@ let rec map_query st loc = function
   | e ->
       e
 
-and map_select st loc = function
+and map_select st _loc = function
   (* select [...; field|foreign_key|unwrap Table.field; ...] *)
   | { pexp_desc =
       Pexp_apply
@@ -298,7 +298,7 @@ and map_select st loc = function
   (* select [...; subquery (from ...); ...] *)
   | { pexp_desc =
       Pexp_apply (({ pexp_desc =
-                     Pexp_ident { txt = Lident "subquery"; loc } } as sub),
+                     Pexp_ident { txt = Lident "subquery" } } as sub),
                   [(lbl, expr)]) } as e ->
 
       let st' = { st with tables = ref [] } in
@@ -321,7 +321,7 @@ and map_select st loc = function
   | e ->
       e
 
-let rec map_module table references loc = function
+let rec map_module table references _loc = function
   | [] -> ()
 
   (* Field.foreign_key name ~references:Some.field *)
