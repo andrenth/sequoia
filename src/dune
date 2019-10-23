@@ -1,0 +1,4 @@
+(library
+ (name sequoia)
+ (public_name sequoia)
+ (flags (:standard -w -50)))

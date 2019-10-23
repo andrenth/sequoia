@@ -1,0 +1,20 @@
+(alias
+ (name runtest)
+ (deps t.exe))
+
+(rule
+ (targets t.ml)
+ (deps
+  (:< t.cppo.ml)
+  (glob_files tables/*.ml)
+  (glob_files queries/*.ml))
+ (action
+  (chdir
+   %{workspace_root}
+   (run %{bin:cppo} -V OCAML:%{ocaml_version} %{<} -o %{targets}))))
+
+(executable
+ (name t)
+ (libraries sequoia sequoia-mysql sequoia-ppx)
+ (preprocess
+  (pps sequoia-ppx)))

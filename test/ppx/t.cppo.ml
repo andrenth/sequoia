@@ -8,12 +8,12 @@ module Bool = struct
   let instance = function
     | True ->
         (module struct
-          type t = True
+          type nonrec t = t
           let to_string = "TRUE"
         end : Mysql.Enum.Instance)
     | False ->
         (module struct
-          type t = False
+          type nonrec t = t
           let to_string = "FALSE"
         end : Mysql.Enum.Instance)
 end

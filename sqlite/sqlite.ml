@@ -62,8 +62,8 @@ module Expr = struct
     | Sum : int t -> int t
     | Total : int t -> int t
 
-  let avg f = fun src -> Avg (f src)
-  let changes () = fun src -> Changes
+  (* let avg f = fun src -> Avg (f src) *)
+  let changes () = fun _src -> Changes
   let char f = fun src -> Char (f src)
   let coalesce f = fun src -> Coalesce (f src)
   let glob pat f = fun src -> Glob (pat, f src)
@@ -78,7 +78,7 @@ module Expr = struct
   let max f = fun src -> Max (f src)
   let min f = fun src -> Min (f src)
   let nullif f g = fun src -> Nullif (f src, g src)
-  let random () = fun src -> Random
+  let random () = fun _src -> Random
   let randomblob f = fun src -> Randomblob (f src)
   let replace f s1 s2 = fun src -> Replace (f src, s1, s2)
   let round f ?digits = fun src -> Round (f src, digits)
@@ -102,7 +102,7 @@ module Expr = struct
   let sum f = fun src -> Sum (f src)
   let total f = fun src -> Total (f src)
 
-  let rec build
+  let build
     : type a. handover:handover -> build_step -> a t -> build_step =
     fun ~handover st e ->
       let fn ?(st = st) =
