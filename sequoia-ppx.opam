@@ -1,18 +1,28 @@
 opam-version: "1.2"
-version: "0.1.0"
+version: "0.2.0"
 maintainer: "Andre Nathan <andrenth@gmail.com>"
 authors: "Andre Nathan <andrenth@gmail.com>"
 homepage: "https://github.com/andrenth/sequoia"
 bug-reports: "https://github.com/andrenth/sequoia"
 license: "MIT"
 dev-repo: "https://github.com/andrenth/sequoia"
-available: [ ocaml-version >= "4.04.0" ]
+available: [ ocaml-version >= "4.12.0" ]
 build: [
-  ["jbuilder" "build" "-p" name "-j" jobs]
+  ["dune" "subst"] {dev}
+  [
+    "dune"
+    "build"
+    "-p"
+    name
+    "-j"
+    jobs
+    "@install"
+    "@runtest" {with-test}
+    "@doc" {with-doc}
+  ]
 ]
-build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
 depends: [
-  "jbuilder" {build}
+  "dune" {build}
   "sequoia"
   "ppx_tools_versioned"
   "ocaml-migrate-parsetree"

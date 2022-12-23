@@ -20,6 +20,7 @@ module type S = sig
 
       val asc : ('t Table.t -> 'a Expr.t) -> 't Table.t -> ('t, 'a) expr
       val desc : ('t Table.t -> 'a Expr.t) -> 't Table.t -> ('t, 'a) expr
+
     end
 
     module Vector : Vector.S with type ('t, 'a) elem := ('t, 'a) expr
@@ -37,7 +38,14 @@ module type S = sig
 
     type ('t, 'a) mk = 't Table.t -> ('t, 'a) Expr.expr
 
+    module Vec    : Vector.S with type ('t, 'a) elem := ('t, 'a) Expr.expr
     module Vector : Vector.S with type ('t, 'a) elem := ('t, 'a) mk
+
+    val vectormk_to_vector : 't Table.t
+                             -> ('t, 'a, 'n) Vector.t
+                             -> ('t, 'a, 'n) Vec.t
+
+
   end
 
   module Vector : Vector.S with type ('t, 'a) elem := ('t, 'a) mk
@@ -167,7 +175,7 @@ module Make (D : Driver.S) : S = struct
       let vec = OrderBy.vectormk_to_vector stmt.table bl in
       U { stmt with order_by = Some vec }
 
-  let build_updates ~handover st table updates =
+  let build_updates ~handover st _table updates =
     let fold
       : type t a b. build_step * int
                  -> (t, a) Field.t * (b, a) Expr.expr

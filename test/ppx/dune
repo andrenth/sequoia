@@ -1,0 +1,20 @@
+(alias
+ (name runtest)
+ (deps t.exe))
+
+(rule
+ (target t.ml)
+ (deps
+    (:t t.cppo.ml)
+    (glob_files tables/*.ml)
+    (glob_files queries/*.ml))
+  (action
+     (chdir ${ROOT} (run cppo %{t} -o %{target}))))
+
+(executable
+ (name t)
+ (libraries
+   sequoia
+    sequoia-mysql
+    sequoia-ppx)
+  (preprocess (pps sequoia-ppx)))

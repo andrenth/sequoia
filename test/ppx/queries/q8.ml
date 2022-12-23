@@ -1,6 +1,6 @@
 let q8 =
   let query, params =
-    Mysql.(Expr.(Update.(Vector.(Expr.(Vector.(OrderBy.Expr.(Vector.(
+    Mysql.(Expr.(Update.(Vector.(Expr.(OrderBy.(Expr.(Vector.(
       update User.table
         ~set:
           [ User.name, string "John Doe"

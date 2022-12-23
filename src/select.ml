@@ -224,10 +224,10 @@ module Make (D : Driver.S) : S = struct
     type 'a t = 'a Expr.t
 
     let (-->) expr alias = fun src -> As (expr src, alias)
-    let alias name = fun src -> Alias name
+    let alias name = fun _src -> Alias name
     let field fld steps = fun src -> Field (fld, src, steps)
     let foreign_key fk steps = fun src -> Foreign (fk, src, steps)
-    let subquery sel = fun src -> Select sel
+    let subquery sel = fun _src -> Select sel
 
     (* XXX is there a better name for this? *)
     let unwrap

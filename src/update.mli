@@ -67,8 +67,14 @@ module type S = sig
     type ('t, 'a) mk = 't Table.t -> ('t, 'a) Expr.expr
       (** The type of [UPDATE] expression builders. *)
 
+    module Vec    : Vector.S with type ('t, 'a) elem := ('t, 'a) Expr.expr
     module Vector : Vector.S with type ('t, 'a) elem := ('t, 'a) mk
       (** Vector of [UPDATE] expression builders. *)
+
+    val vectormk_to_vector : 't Table.t
+                             -> ('t, 'a, 'n) Vector.t
+                             -> ('t, 'a, 'n) Vec.t
+
   end
 
   module Vector : Vector.S with type ('t, 'a) elem := ('t, 'a) mk

@@ -13,25 +13,34 @@ module type S = sig
 
   module Param  : module type of Param
     (** Query parameters. *)
+
   module Lit    : module type of Lit
     (** Literal values. *)
+
   module Expr   : module type of Expr
     (** Expressions. *)
+
   module Table  : module type of Table
     (** SQL tables. *)
+
   module Field  : module type of Field
     (** Field definitions. *)
+
   module Vector : module type of Vector
     (** Heterogeneous lists with type-encoded length. *)
 
   module Select  : Select.S
     (** [SELECT] queries. *)
+
   module Insert  : Insert.S
     (** [INSERT] queries. *)
+
   module Replace : Replace.S
     (** [REPLACE] queries. *)
+
   module Update  : Update.S
     (** [UPDATE] queries. *)
+
   module Delete  : Delete.S
     (** [DELETE] queries. *)
 
