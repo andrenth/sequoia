@@ -46,7 +46,7 @@ struct
     | (::) : ('a, 'b, 'n) t * ('a, 'b, 'm, 'n) matrix
           -> ('a, 'b, 'm Nat.s, 'n) matrix
 
-  type 'z matrix_folder = { mf : 'a 'b. 'z -> ('a, 'b) E.elem -> 'z }
+  (*type 'z matrix_folder = { mf : 'a 'b. 'z -> ('a, 'b) E.elem -> 'z }*)
 
   let rec matrix_fold_left
     : type a b m n. 'z folder -> 'z -> (a, b, m, n) matrix -> 'z =

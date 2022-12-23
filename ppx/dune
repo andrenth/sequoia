@@ -1,0 +1,5 @@
+(library
+ (name sequoia_ppx)
+ (public_name sequoia-ppx)
+ (kind ppx_rewriter)
+ (libraries ppxlib sequoia))

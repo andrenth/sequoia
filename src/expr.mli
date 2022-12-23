@@ -5,6 +5,7 @@ type 'a t = ..
 	(** The type of expressions. It is extended by the query modules (i.e.
 			[Select], [Insert], etc.) to account for expressions that are only
       valid for the respective query types. *)
+
 type 'a cast = ..
 	(** The type that represents an SQL [CAST()]. *)
 
@@ -49,51 +50,73 @@ module Base : sig
 
   val (=)    : ('a -> 'b t) -> ('a -> 'b t) -> 'a -> bool t
 		(** The [=] operator. *)
+
   val (=%)   : ('a -> string t) -> string -> 'a -> bool t
 		(** The [LIKE] operator. *)
+
   val (<>)   : ('a -> 'b t) -> ('a -> 'b t) -> 'a -> bool t
 		(** The [<>] operator. *)
+
   val (<>%)  : ('a -> string t) -> string -> 'a -> bool t
 		(** The [NOT LIKE] operator. *)
+
   val (>)    : ('a -> 'b t) -> ('a -> 'b t) -> 'a -> bool t
 		(** The [>] operator. *)
+
   val (>=)   : ('a -> 'b t) -> ('a -> 'b t) -> 'a -> bool t
 		(** The [>=] operator. *)
+
   val (<)    : ('a -> 'b t) -> ('a -> 'b t) -> 'a -> bool t
 		(** The [<] operator. *)
+
   val (<=)   : ('a -> 'b t) -> ('a -> 'b t) -> 'a -> bool t
 		(** The [<=] operator. *)
+
   val (&&)   : ('a -> bool t) -> ('a -> bool t) -> 'a -> bool t
 		(** The [AND] operator. *)
+
   val (||)   : ('a -> bool t) -> ('a -> bool t) -> 'a -> bool t
 		(** The [OR] operator. *)
+
   val (+)    : ('a -> int t) -> ('a -> int t) -> 'a -> int t
 		(** The [+] operator for integers. *)
+
   val (-)    : ('a -> int t) -> ('a -> int t) -> 'a -> int t
 		(** The [-] operator for integers. *)
+
   val ( * )  : ('a -> int t) -> ('a -> int t) -> 'a -> int t
 		(** The [*] operator for integers. *)
+
   val (/)    : ('a -> int t) -> ('a -> int t) -> 'a -> int t
 		(** The [/] operator for integers. *)
+
   val (+.)   : ('a -> float t) -> ('a -> float t) -> 'a -> float t
 		(** The [+] operator for floats. *)
+
   val (-.)   : ('a -> float t) -> ('a -> float t) -> 'a -> float t
 		(** The [-] operator for floats. *)
+
   val ( *. ) : ('a -> float t) -> ('a -> float t) -> 'a -> float t
 		(** The [*] operator for floats. *)
+
   val (/.)   : ('a -> float t) -> ('a -> float t) -> 'a -> float t
 		(** The [/] operator for floats. *)
+
   val (<<)   : ('a -> int t) -> int -> 'a -> int t
 		(** The [<<] operator. *)
+
   val (>>)   : ('a -> int t) -> int -> 'a -> int t
 		(** The [>>] operator. *)
+
   val (=?)   : ('a -> 'b t) -> ('a -> 'b t) list -> 'a -> bool t
 		(** The [IN] operator. *)
+
   val (<>?)  : ('a -> 'b t) -> ('a -> 'b t) list -> 'a -> bool t
 		(** The [NOT IN] operator. *)
 
   val is_null : ('a -> 'b option t) -> 'a -> bool t
 		(** The [IS NULL] operator. *)
+
   val is_not_null : ('a -> 'b option t) -> 'a -> bool t
 		(** The [IS NOT NULL] operator. *)
 
@@ -101,12 +124,16 @@ module Base : sig
 
   val bool   : bool -> 'a -> bool t
 		(** A boolean value expression. *)
+
   val int    : int -> 'a -> int t
 		(** An int value expression. *)
+
   val float  : float -> 'a -> float t
 		(** A float value expression. *)
+
   val string : string -> 'a -> string t
 		(** A string value expression. *)
+
   val blob   : bytes -> 'a -> bytes t
 		(** A blob value expression. *)
 
@@ -114,12 +141,16 @@ module Base : sig
 
   val as_bool   : ('a -> 'b t) -> 'a -> bool t
 		(** Cast to bool. *)
+
   val as_int    : ('a -> 'b t) -> 'a -> int t
 		(** Cast to int. *)
+
   val as_float  : ('a -> 'b t) -> 'a -> float t
 		(** Cast to float. *)
+
   val as_string : ('a -> 'b t) -> 'a -> string t
 		(** Cast to string. *)
+
   val as_blob   : ('a -> 'b t) -> 'a -> bytes t
 		(** Cast to blob. *)
 
@@ -127,12 +158,16 @@ module Base : sig
   module Null : sig
     val bool   : bool -> 'a -> bool option t
 			(** A nullable boolean value expression. *)
+
     val int    : int -> 'a -> int option t
 			(** A nullable int value expression. *)
+
     val float  : float -> 'a -> float option t
 			(** A nullable float value expression. *)
+
     val string : string -> 'a -> string option t
 			(** A nullable string value expression. *)
+
     val blob   : bytes -> 'a -> bytes option t
 			(** A nullable blob value expression. *)
   end

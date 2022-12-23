@@ -4,7 +4,7 @@ module type S = sig
 		(** The type of [DELETE] queries. *)
 
   val delete : ?where:('t Table.t -> bool Expr.t)
-            -> from:'t Table.t
+            -> from:'t Table.t -> unit
             -> 't t
 		(** Define a [DELETE] query on the table given by [from] and conditions
         specified by [where]. *)

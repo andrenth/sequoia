@@ -10,12 +10,15 @@ module Bool = struct
         (module struct
           type t = True
           let to_string = "TRUE"
+          let _ = True (* avoid warning *)
         end : Mysql.Enum.Instance)
     | False ->
         (module struct
           type t = False
           let to_string = "FALSE"
-        end : Mysql.Enum.Instance)
+	  let _ = False
+          end : Mysql.Enum.Instance)
+
 end
 
 module Tables = struct

@@ -1,12 +1,12 @@
 opam-version: "1.2"
-version: "0.1.0"
+version: "0.2.0"
 maintainer: "Andre Nathan <andrenth@gmail.com>"
 authors: "Andre Nathan <andrenth@gmail.com>"
 homepage: "https://github.com/andrenth/sequoia"
 bug-reports: "https://github.com/andrenth/sequoia"
 license: "MIT"
 dev-repo: "https://github.com/andrenth/sequoia"
-available: [ ocaml-version >= "4.04.0" ]
+available: [ ocaml-version >= "4.12.0" ]
 build: [
   ["jbuilder" "subst" "-n" name] {pinned}
   ["jbuilder" "build" "-p" name "-j" jobs]

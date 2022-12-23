@@ -1,0 +1,4 @@
+(library
+ (name sequoia_mysql)
+ (public_name sequoia-mysql)
+ (libraries sequoia unix))

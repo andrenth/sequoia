@@ -4,7 +4,7 @@ open Common
 module type S = sig
   type _ t
 
-  val delete : ?where:('t Table.t -> bool Expr.t) -> from:'t Table.t -> 't t
+  val delete : ?where:('t Table.t -> bool Expr.t) -> from:'t Table.t -> unit -> 't t
   val seal : handover:Expr.handover -> 't t -> string * Param.t list
 
   module Expr : module type of Query_common.UpdateDeleteExpr
@@ -16,7 +16,7 @@ module Make (D : Driver.S) : S = struct
   type 't t =
     | D : { table : 't Table.t; where : 'a Expr.t option } -> 't t
 
-  let delete ?where ~from =
+  let delete ?where ~from () =
     let where =
       match where with
       | Some expr -> Some (expr from)

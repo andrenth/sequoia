@@ -1,5 +1,3 @@
-open Printf
-open Common
 
 module type NAMED = sig
   type t

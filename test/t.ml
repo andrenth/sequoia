@@ -20,6 +20,9 @@ module Tables = struct
     let team = Field.foreign_key "team_id" ~references:Team.id
     let user = Field.foreign_key "user_id" ~references:User.id
   end
+  let _ = TeamUser.id   (* avoid unused warning *)
+  let _ = TeamUser.team (* avoid unused warning *)
+  let _ = TeamUser.user (* avoid unused warning *)
 
   module Project = struct
     include (val Mysql.table "projects")
@@ -27,6 +30,8 @@ module Tables = struct
     let leader = Field.foreign_key "leader_id" ~references:User.id
     let title = Field.string "title"
   end
+  let _ = Project.id
+  let _ = Project.title
 end
 
 let () =

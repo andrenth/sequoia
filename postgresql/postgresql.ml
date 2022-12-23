@@ -105,7 +105,7 @@ module Field = struct
     | Null.Datetime (_, t) -> t
     | Null.Enum (_, t, _) -> t
     | fld -> table fld
-
+(*
   let to_string : type a b. (a, b) t -> string = function
     | Time (name, table) -> sprintf "%s.%s" (Table.name table) name
     | Timestamp (name, table) -> sprintf "%s.%s" (Table.name table) name
@@ -118,7 +118,7 @@ module Field = struct
     | Null.Datetime (name, table) -> sprintf "%s.%s" (Table.name table) name
     | Null.Enum (name, table, _) -> sprintf "%s.%s" (Table.name table) name
     | other -> to_string other
-
+ *)
   let to_string fld =
     let t = table fld in
     sprintf "%s.%s" (Table.name t) (name fld)
@@ -392,7 +392,7 @@ module Expr = struct
     Lit (Lit.Date { base_time with year; month; day })
   let datetime ?(year = 0) ?(month = 0) ?(day = 0)
                ?(hour = 0) ?(minute = 0) ?(second = 0) = fun _ ->
-    Lit (Lit.Datetime { base_time with year; month; day; minute; second })
+    Lit (Lit.Datetime { year; month; day; hour; minute; second })
 
   let enum inst = fun _ ->
     Lit (Lit.Enum inst)
@@ -419,17 +419,17 @@ module Expr = struct
   let compress f = fun src -> Compress (f src)
   let concat f = fun src -> Concat (f src)
   let concat_ws sep l = fun src -> Concat_ws (sep, List.map (fun f -> f src) l)
-  let connection_id () = fun src -> Connection_id
+  let connection_id () = fun _ -> Connection_id
   let conv f i j = fun src -> Conv (f src, i, j)
   let cos f = fun src -> Cos (f src)
   let cot f = fun src -> Cot (f src)
   let count ?(distinct = false) f = fun src -> Count (f src, distinct)
   let crc32 f = fun src -> Crc32 (f src)
-  let current_date () = fun src -> Current_date
-  let current_time () = fun src -> Current_time
-  let current_timestamp () = fun src -> Current_timestamp
-  let current_user () = fun src -> Current_user
-  let database () = fun src -> Database
+  let current_date () = fun _ -> Current_date
+  let current_time () = fun _ -> Current_time
+  let current_timestamp () = fun _ -> Current_timestamp
+  let current_user () = fun _ -> Current_user
+  let database () = fun _ -> Database
   let date_of : ('s M.Select.source -> [< `Date | `Datetime] time t) -> 's M.Select.source -> [`Date] time t = fun f src -> DateFn (f src)
   let date_add f i u = fun src -> Date_add (f src, i, u)
   let date_format f fmt = fun src -> Date_format (f src, fmt)
@@ -448,7 +448,7 @@ module Expr = struct
   let ifnull f g = fun src -> Ifnull (f src, g src)
   let last_day f = fun src -> Last_day (f src)
   let length f = fun src -> Length (f src)
-  let localtime () = fun src -> Localtime
+  let localtime () = fun _ -> Localtime
   let log f = fun src -> Log (f src)
   let log10 f = fun src -> Log10 (f src)
   let log2 f = fun src -> Log2 (f src)
@@ -460,7 +460,7 @@ module Expr = struct
   let minute f = fun src -> Minute (f src)
   let month f = fun src -> Month (f src)
   let monthname f = fun src -> Monthname (f src)
-  let now () = fun src -> Now
+  let now () = fun _ -> Now
   let nullif f g = fun src -> Nullif (f src, g src)
   let ord f = fun src -> Ord (f src)
   let pow f = fun src -> Pow (f src)
@@ -489,23 +489,23 @@ module Expr = struct
   let timestampdiff u f g = fun src -> Timestampdiff (u, f src, g src)
   let trim f = fun src -> Trim (f src)
   let uncompress f = fun src -> Uncompress (f src)
-  let utc_date () = fun src -> Utc_date
-  let utc_time () = fun src -> Utc_time
-  let utc_timestamp () = fun src -> Utc_timestamp
-  let uuid () = fun src -> Uuid
-  let uuid_short () = fun src -> Uuid_short
-  let week () = fun src -> Week
-  let weekday () = fun src -> Weekday
-  let weekofyear () = fun src -> Weekofyear
+  let utc_date () = fun _ -> Utc_date
+  let utc_time () = fun _ -> Utc_time
+  let utc_timestamp () = fun _ -> Utc_timestamp
+  let uuid () = fun _ -> Uuid
+  let uuid_short () = fun _ -> Uuid_short
+  let week () = fun _ -> Week
+  let weekday () = fun _ -> Weekday
+  let weekofyear () = fun _ -> Weekofyear
   let upper f = fun src -> Upper (f src)
-  let year () = fun src -> Year
+  let year () = fun _ -> Year
 
   let as_time f = fun src -> Cast (f src, Time)
   let as_timestamp f = fun src -> Cast (f src, Timestamp)
   let as_date f = fun src -> Cast (f src, Date)
   let as_datetime f = fun src -> Cast (f src, Datetime)
 
-  let rec build
+  let build
     : type a. handover:handover -> build_step -> a t -> build_step =
     fun ~handover st e ->
       let build_param = build_param D.placeholder in
@@ -543,7 +543,7 @@ module Expr = struct
       | Collation e -> fn "COLLATION(" [e] ")"
       | Compress e -> fn "COMPRESS(" [e] ")"
       | Concat l -> fn "CONCAT(" l ")"
-      | Concat_ws (s, l) -> fn "CONCAT_WS" l ")"
+      | Concat_ws (_s, l) -> fn "CONCAT_WS" l ")"
       | Connection_id -> fn "CONNECTION_ID" [] ")"
       | Conv (e1, i, j) -> fn "CONV(" [e1] (sprintf ", %d, %d)" i j)
       | Cos e -> fn "COS(" [e] ")"
@@ -577,13 +577,13 @@ module Expr = struct
       | If (b, t, f) ->
           let st1 = fn "CASE WHEN " [b] " THEN " in
           let st2 = fn ~st:st1 (st1.repr ^ " ELSE ") [t; f] " END " in
-          Sequoia.{ st2 with params = st1.params @ st2.params }
+          { st2 with params = st1.params @ st2.params }
       | From_days e -> fn "FROM_DAYS(" [e] ")"
       | From_unixtime e -> fn "FROM_UNIXTIME(" [e] ")"
       | Ifnull (e1, e2) ->
           let st1 = fn "IFNULL(" [e1] "" in
           let st2 = fn ~st:st1 (st1.repr ^ ", ") [e2] ")" in
-          Sequoia.{ st2 with params = st1.params @ st2.params }
+          { st2 with params = st1.params @ st2.params }
       | Last_day e -> fn "LAST_DAY(" [e] ")"
       | Length e -> fn "LENGTH(" [e] ")"
       | Localtime -> fn "LOCALTIME(" [] ")"

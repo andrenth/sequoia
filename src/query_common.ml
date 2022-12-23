@@ -42,7 +42,7 @@ module UpdateDeleteExpr = struct
   let field fld = fun table -> Field (fld, table)
   let foreign_key fk = fun table -> Foreign (fk, table)
 
-  let rec build
+  let build
     : type a. placeholder:(int -> string)
            -> handover:Expr.handover
            -> build_step
@@ -92,7 +92,6 @@ module InsertReplace = struct
       | f::fs -> Field.name f ^ ", " ^ join_fields fs
 
   let expr_placeholders ~placeholder i vs =
-    let open Lit in
     let rec eps
       : type t a n. int -> (t, a, n) Lit.Vector.t -> string list =
       fun i exprs ->
